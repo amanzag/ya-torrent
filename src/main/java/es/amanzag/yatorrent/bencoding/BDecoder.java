@@ -5,6 +5,13 @@ package es.amanzag.yatorrent.bencoding;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableMap;
 
 /**
  * @author Alberto Manzaneque
@@ -12,92 +19,97 @@ import java.io.InputStream;
  */
 public class BDecoder {
 	
+    private final static Charset charset = Charsets.ISO_8859_1;
+    
 	private InputStream in;
 	
 	public BDecoder(InputStream input) {
 		this.in = input;
 	}
 	
-	public BElement decodeNext() throws IOException, BEncodingException {
+	public static byte[] toBytes(String s) {
+	    return s.getBytes(charset);
+	}
+	
+	@SuppressWarnings("unchecked")
+    public <T> T decodeNext() throws IOException {
 		int tempByte = in.read();
-		switch (tempByte) {
-		case 'd':
-			return decodeDictionary();
-		case 'i':
-			return decodeInteger();
-		case 'l':
-			return decodeList();
-		case '0':
-		case '1':
-		case '2':
-		case '3':
-		case '4':
-		case '5':
-		case '6':
-		case '7':
-		case '8':
-		case '9':
-			StringBuffer buf = new StringBuffer(10);
-			while(tempByte != ':') {
-				if(!Character.isDigit(tempByte))
-					throw new BEncodingException("Unexpected character");
-				buf.append((char)tempByte);
-				tempByte = (char)in.read();
-			}
-			return decodeString(Integer.parseInt(buf.toString()));
-			
-		case 'e':
-			return null;
-
-		default:
-			throw new BEncodingException("Unexpected character");
+		try {
+		    switch (tempByte) {
+		    case 'd':
+		        return (T) decodeDictionary();
+		    case 'i':
+		        return (T) decodeInteger();
+		    case 'l':
+		        return (T) decodeList();
+		    case '0':
+		    case '1':
+		    case '2':
+		    case '3':
+		    case '4':
+		    case '5':
+		    case '6':
+		    case '7':
+		    case '8':
+		    case '9':
+		        StringBuffer buf = new StringBuffer(10);
+		        while(tempByte != ':') {
+		            if(!Character.isDigit(tempByte))
+		                throw new BEncodingException("Unexpected character");
+		            buf.append((char)tempByte);
+		            tempByte = (char)in.read();
+		        }
+		        return (T) decodeString(Integer.parseInt(buf.toString()));
+		        
+		    case 'e':
+		        return null;
+		        
+		    default:
+		        throw new BEncodingException("Unexpected character");
+		    }
+		    
+		} catch (ClassCastException e) {
+		    throw new BEncodingException("Unexpected type. " + e.getMessage(), e);
 		}
 	}
 	
-	protected BDictionary decodeDictionary() throws IOException, BEncodingException {
-		BDictionary res = new BDictionary();
-		BElement value = null;
+	protected Map<String, ?> decodeDictionary() throws IOException {
+	    ImmutableMap.Builder<String, Object> res = ImmutableMap.builder();
+		Object value = null;
 		
-		BElement key = decodeNext();
+		String key = decodeNext();
 		
 		if(key == null)
 			throw new BEncodingException("Unexpected end of dictionary");
 		
-		if(!(key instanceof BString))
-			throw new BEncodingException("Unexpected element");
-		
 		value = decodeNext();
 		if(value == null)
 			throw new BEncodingException("Unexpected end of dictionary");
-		res.put((BString)key, value);
+		res.put(key, value);
 		
 		
 		while(key != null) {
 			key = decodeNext();
 			if(key !=null) {
-				if(!(key instanceof BString))
-					throw new BEncodingException("Unexpected element: "+key);
 				value = decodeNext();
 				if(value == null)
 					throw new BEncodingException("Unexpected end of dictionary");
-				res.put((BString)key, value);
+				res.put(key, value);
 			}
 
 		}
-		//System.out.println(res);
-		return res;
+		return res.build();
 	}
 	
-	protected BString decodeString(int length) throws IOException, BEncodingException {
+	protected String decodeString(int length) throws IOException {
 		byte[] res = new byte[length];
 		for(int i=0; i<length; i++) {
 			res[i] = (byte)in.read();
 		}
-//		System.out.println(new BString(res));
-		return new BString(res);
+		return new String(res, charset);
 	}
 	
-	protected BInteger decodeInteger() throws BEncodingException, IOException {
+	protected Integer decodeInteger() throws IOException {
 		char tempByte = (char)in.read();
 		StringBuffer buf = new StringBuffer(10);
 		while(tempByte != 'e') {
@@ -107,19 +119,17 @@ public class BDecoder {
 			tempByte = (char)in.read();
 		}
 		
-//		System.out.println(Integer.parseInt(buf.toString()));
-		return new BInteger(Long.parseLong(buf.toString()));
+		return Integer.valueOf(buf.toString());
 	}
 
 	
-	protected BList decodeList() throws IOException, BEncodingException {
-		BList res = new BList();
-		BElement el = decodeNext();
+	protected List<?> decodeList() throws IOException {
+		List<Object> res =  new ArrayList<>();
+		Object el = decodeNext();
 		while (el != null) {
 			res.add(el);
 			el = decodeNext();
 		}
-//		System.out.println(res);
 		return res;
 	}
 	

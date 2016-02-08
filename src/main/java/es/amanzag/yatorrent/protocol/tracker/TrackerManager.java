@@ -46,7 +46,7 @@ public class TrackerManager extends Thread implements TrackerEventProducer {
 		                setUrl(announce);
 		                break;
 		            } catch (MalformedURLException e2) {
-		                logger.warn("Can't use additional tracker " + metadata.getAnnounce());
+		                logger.warn("Can't use additional tracker " + announce);
 		            }
                 }
 		    }
@@ -154,11 +154,8 @@ public class TrackerManager extends Thread implements TrackerEventProducer {
 						break;
 					}
 
-				} catch(TrackerProtocolException e) {
-					logger.warn("Error sending request to tracker "+metadata.getAnnounce()+". "+e.getMessage());
-					end();
-				} catch (IOException e) {
-					logger.warn("Error sending request to tracker "+metadata.getAnnounce()+". "+e.getMessage());
+				} catch(IOException | TrackerProtocolException e) {
+					logger.error("Error sending request to tracker "+url+". "+e.getMessage(), e);
 					end();
 				}
 			} else {

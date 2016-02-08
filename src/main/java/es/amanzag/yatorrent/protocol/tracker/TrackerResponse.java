@@ -7,14 +7,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import es.amanzag.yatorrent.bencoding.BDecoder;
-import es.amanzag.yatorrent.bencoding.BDictionary;
-import es.amanzag.yatorrent.bencoding.BElement;
 import es.amanzag.yatorrent.bencoding.BEncodingException;
-import es.amanzag.yatorrent.bencoding.BInteger;
-import es.amanzag.yatorrent.bencoding.BList;
-import es.amanzag.yatorrent.bencoding.BString;
 import es.amanzag.yatorrent.protocol.Peer;
 
 /**
@@ -24,11 +20,11 @@ import es.amanzag.yatorrent.protocol.Peer;
 public class TrackerResponse {
 	
 	private String warningMessage;
-	private long interval;
-	private long minInterval;
+	private Integer interval;
+	private Integer minInterval;
 	private String trackerId;
-	private long complete;
-	private long incomplete;
+	private Integer complete;
+	private Integer incomplete;
 	private List<Peer> peers;
 	
 	protected TrackerResponse() {
@@ -39,60 +35,47 @@ public class TrackerResponse {
 		TrackerResponse response = null;
 		try {
 			response = new TrackerResponse();
-			BDictionary root = (BDictionary) new BDecoder(in).decodeNext();
+			Map<String, Object> root = new BDecoder(in).decodeNext();
 			
-			BElement bDec = root.get(new BString("failure reason"));
-			if(bDec != null) {
-				throw new TrackerProtocolException("the tracker returned an error: "+bDec);
+			String failureReason = (String) root.get("failure reason");
+			if(failureReason != null) {
+				throw new TrackerProtocolException("the tracker returned an error: "+failureReason);
 			}
 			
-			bDec = root.get(new BString("warning message"));
-			if(bDec != null) {
-				response.warningMessage = ((BString)bDec).getValue();			
-			}
+			response.warningMessage = (String) root.get("warning message");
 			
-			bDec = root.get(new BString("interval"));
-			if(bDec == null)
-				throw new TrackerProtocolException("interval not present in tracker response");
-			response.interval = ((BInteger)bDec).getValue();
+			response.interval = (Integer) root.get("interval");
+			if(response.interval == null) {
+                throw new TrackerProtocolException("interval not present in tracker response");
+            }
 
-			bDec = root.get(new BString("min interval"));
-			if(bDec != null)
-				response.minInterval = ((BInteger)bDec).getValue();
+			response.minInterval = (Integer) root.get("min interval");
+			response.trackerId = (String) root.get("tracker id");
+			response.complete = (Integer) root.get("complete");
+			response.incomplete = (Integer) root.get("incomplete");
 			
-			bDec = root.get(new BString("tracker id"));
-			if(bDec != null)
-				response.trackerId = ((BString)bDec).getValue();
-
-			bDec = root.get(new BString("complete"));
-			if(bDec != null)
-				response.complete = ((BInteger)bDec).getValue();
+			Object peers = root.get("peers");
 			
-			bDec = root.get(new BString("incomplete"));
-			if(bDec != null)
-				response.incomplete = ((BInteger)bDec).getValue();
-
-			bDec = root.get(new BString("peers"));
-			if(bDec instanceof BList) { // normal mode
-				for (BElement current : (BList)bDec) {
-					BDictionary dict = (BDictionary) current;
-					BString ip = (BString) dict.get(new BString("ip"));
-					BInteger port = (BInteger) dict.get(new BString("port"));
+			if(peers instanceof List) { // normal mode
+				for (Map<String, Object> dict : (List<Map<String, Object>>)peers) {
+					String ip = (String) dict.get("ip");
+					Integer port = (Integer) dict.get("port");
 					if(ip == null || port == null) {
 						throw new TrackerProtocolException("malformed peer list");
 					}
-					BString peerId = (BString) dict.get(new BString("peer id"));
+					String peerId = (String) dict.get("peer id");
 					Peer peer = null;
-					peer = new Peer(ip.getValue(), (int)port.getValue());
+					peer = new Peer(ip, port);
 					if(peerId == null) {
-						peer.setId(peerId.getValue().getBytes());
+						peer.setId(BDecoder.toBytes(peerId));
 					}
 					response.peers.add(peer);
 				}
-			} else if (bDec instanceof BString) { // compact mode
-				byte[] buf = ((BString)bDec).getBytes();
-				if(buf.length % 6 != 0)
-					throw new TrackerProtocolException("malformed peer list");
+			} else if (peers instanceof String) { // compact mode
+				byte[] buf = BDecoder.toBytes(((String) peers));
+				if(buf.length % 6 != 0) {
+                    throw new TrackerProtocolException("malformed peer list");
+                }
 				for(int i=0; i<buf.length; i+=6) {
 					StringBuffer ip = new StringBuffer(15);
 					for(int j=0; j<4; j++) {

@@ -15,16 +15,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import es.amanzag.yatorrent.bencoding.BDecoder;
-import es.amanzag.yatorrent.bencoding.BDictionary;
-import es.amanzag.yatorrent.bencoding.BElement;
 import es.amanzag.yatorrent.bencoding.BEncoder;
 import es.amanzag.yatorrent.bencoding.BEncodingException;
-import es.amanzag.yatorrent.bencoding.BInteger;
-import es.amanzag.yatorrent.bencoding.BList;
-import es.amanzag.yatorrent.bencoding.BString;
 
 /**
  * @author Alberto Manzaneque
@@ -34,7 +30,7 @@ public class TorrentMetadata {
 	
 	public static class ContainedFile {
 		private String name;
-		private long length;
+		private Integer length;
 		private ContainedFile() {}
 		public long getLength() {
 			return length;
@@ -51,7 +47,7 @@ public class TorrentMetadata {
 	private String createdBy;
 	private String comment;
 	private boolean multifile;
-	private int pieceLength;
+	private Integer pieceLength;
 	private List<byte[]> pieceHashes;
 	private String directory;
 	private List<ContainedFile> files;
@@ -66,106 +62,105 @@ public class TorrentMetadata {
 	
 	public static TorrentMetadata createFromFile(File file) throws IOException, MalformedMetadataException {
 		BDecoder decoder = new BDecoder(new FileInputStream(file));
-		BElement bDec = null;
-		try {
-			bDec= decoder.decodeNext();
-		} catch (BEncodingException e) {
-			throw new MalformedMetadataException("File "+file.getAbsolutePath()+" is not a well-formed .torrent", e);
-		}
+		Map<String, Object> root = null;
 
 		TorrentMetadata result = new TorrentMetadata();
 		try {
-			BDictionary root = (BDictionary)bDec;
+		    root = decoder.decodeNext();
+		    result.announce = (String) root.get("announce");
+			if(result.announce == null) {
+			    throw new MalformedMetadataException("announce not present in .torrent");
+			}
 			
-			bDec = root.get(new BString("announce"));
-			if(bDec == null)
-				throw new MalformedMetadataException("announce not present in .torrent");
-			result.announce = ((BString)bDec).getValue();
-			
-			bDec = root.get(new BString("announce-list"));
-			if(bDec == null)
+			List<List<String>> announceList = (List<List<String>>) root.get("announce-list");
+			if(announceList == null) {
 			    result.announceList = Collections.emptyList();
-			result.announceList = ((BList)bDec).stream().map(bs -> ((BString)((BList)bs).get(0)).getValue()).collect(Collectors.toList());
+			} else {
+			    result.announceList = announceList.stream().map(al -> al.get(0)).collect(Collectors.toList());
+			}
 			
 			
-			bDec = root.get(new BString("creation date"));
-			if(bDec != null)
-				result.creationDate = new Date(((BInteger)bDec).getValue());
+			Integer creationDate = (Integer) root.get("creation date");
+			if(creationDate != null) {
+			    result.creationDate = new Date(creationDate);
+			}
 			
-			bDec = root.get(new BString("comment"));
-			if(bDec != null)
-				result.comment = ((BString)bDec).getValue();
+			result.comment = (String) root.get("comment");
+			result.createdBy = (String) root.get("created by");
 			
-			bDec = root.get(new BString("created by"));
-			if(bDec != null)
-				result.createdBy = ((BString)bDec).getValue();
-			
-			root = (BDictionary) root.get(new BString("info"));
-			if(root == null)
-				throw new MalformedMetadataException("announce not present in .torrent");
+			@SuppressWarnings("unchecked")
+            Map<String, Object> info = (Map<String, Object>) root.get("info");
+			if(info == null) {
+                throw new MalformedMetadataException("announce not present in .torrent");
+            }
 			
 			// obtain the info_hash
-			ByteArrayOutputStream info = new ByteArrayOutputStream(1024);
-			BEncoder encoder = new BEncoder(info);
-			encoder.encode(root);
+			ByteArrayOutputStream stream = new ByteArrayOutputStream(1024);
+			BEncoder encoder = new BEncoder(stream);
+			encoder.encode(info);
 			MessageDigest sha1 = MessageDigest.getInstance("SHA1");
-			byte[] data = Arrays.copyOf(info.toByteArray(), info.size());
+			byte[] data = Arrays.copyOf(stream.toByteArray(), stream.size());
 			sha1.update(data);
 			result.infoHash = sha1.digest();
 			
+			root = info;
+			result.pieceLength = (Integer) root.get("piece length");
+			if(result.pieceLength == null) {
+                throw new MalformedMetadataException("piece length not present in .torrent");
+            }
 			
-			bDec = root.get(new BString("piece length"));
-			if(bDec == null)
-				throw new MalformedMetadataException("piece length not present in .torrent");
-			result.pieceLength = (int)(((BInteger)bDec).getValue());
-			
-			bDec = root.get(new BString("pieces"));
-			if(bDec == null)
-				throw new MalformedMetadataException("pieces not present in .torrent");
-			byte[] hashes = ((BString)bDec).getBytes();
+			String pieces = (String) root.get("pieces");
+			if(pieces == null) {
+                throw new MalformedMetadataException("pieces not present in .torrent");
+            }
+			byte[] hashes = BDecoder.toBytes(pieces);
 			if(hashes.length % 20 != 0)
 				throw new MalformedMetadataException("incorrect length of pieces");
 			for(int bytesRead = 0; bytesRead < hashes.length; bytesRead += 20) {
 				result.pieceHashes.add(Arrays.copyOfRange(hashes, bytesRead, bytesRead+20));
 			}
 			
-			bDec = root.get(new BString("length"));
-			if(bDec != null) { // 1 file torrent
+			Integer length = (Integer) root.get("length");
+			if(length != null) { // 1 file torrent
 				result.directory = "";
 				ContainedFile cFile = new ContainedFile();
-				cFile.length = ((BInteger)bDec).getValue();
-				bDec = root.get(new BString("name"));
-				if(bDec == null)
-					throw new MalformedMetadataException("file name not present in .torrent");
-				cFile.name = ((BString)bDec).getValue();
+				cFile.length = length;
+				cFile.name = (String) root.get("name");
+				if(cFile.name == null) {
+                    throw new MalformedMetadataException("file name not present in .torrent");
+                }
 				result.files.add(cFile);
-			} else if((bDec=root.get(new BString("files"))) != null) { // multifile torrent
-				bDec = root.get(new BString("name"));
-				if(bDec == null)
-					throw new MalformedMetadataException("file name not present in .torrent");
-				result.directory = ((BString)bDec).getValue();
+			} else if((root.get("files")) != null) { // multifile torrent
+			    result.directory = (String) root.get("name");
+				if(result.directory == null) {
+                    throw new MalformedMetadataException("file name not present in .torrent");
+                }
 				
-				BList list = (BList)root.get(new BString("files"));
-				if(list.size() == 0)
-					throw new MalformedMetadataException(".torrent contains no files");
-				for (BElement next : list) {
-					BDictionary dir = (BDictionary) next;
+				@SuppressWarnings("unchecked")
+                List<Object> fileList = (List<Object>) root.get("files");
+				if(fileList.size() == 0) {
+                    throw new MalformedMetadataException(".torrent contains no files");
+                }
+				for (Object next : fileList) {
+					@SuppressWarnings("unchecked")
+                    Map<String, Object> dir =  (Map<String, Object>) next;
 					ContainedFile cFile = new ContainedFile();
 	
-					bDec = dir.get(new BString("length"));
-					if(bDec == null)
-						throw new MalformedMetadataException("file length not present");
-					cFile.length = ((BInteger)bDec).getValue();
+					cFile.length = (Integer) dir.get("length");
+					if(cFile.length == null) {
+                        throw new MalformedMetadataException("file length not present");
+                    }
 					
-					bDec = dir.get(new BString("path"));
-					if(bDec == null)
-						throw new MalformedMetadataException("file path not present");
-					BList pathList = (BList)bDec;
+					@SuppressWarnings("unchecked")
+                    List<String> pathList = (List<String>) dir.get("path");
+					if(pathList == null) {
+                        throw new MalformedMetadataException("file path not present");
+                    }
 					if(pathList.size() == 0)
 						throw new MalformedMetadataException("file path not present");
 					StringBuffer path = new StringBuffer();
-					for (BElement element : pathList) {
-						path.append(((BString)element).getValue());
+					for (String pathElement : pathList) {
+						path.append(pathElement);
 						path.append(File.separator);
 					}
 					path.deleteCharAt(path.length()-1);
@@ -185,6 +180,8 @@ public class TorrentMetadata {
 			
 		} catch (ClassCastException e) {
 			throw new MalformedMetadataException("not valid structure", e);
+		} catch (BEncodingException e) {
+		    throw new MalformedMetadataException("File "+file.getAbsolutePath()+" is not a well-formed .torrent", e);
 		} catch (NoSuchAlgorithmException e) {
 			// TODO escribir un error entendible
 			e.printStackTrace();
