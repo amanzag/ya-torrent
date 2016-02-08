@@ -12,8 +12,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import es.amanzag.yatorrent.bencoding.BDecoder;
 import es.amanzag.yatorrent.bencoding.BDictionary;
@@ -44,6 +46,7 @@ public class TorrentMetadata {
 	
 	
 	private String announce;
+	private List<String> announceList;
 	private Date creationDate;
 	private String createdBy;
 	private String comment;
@@ -78,6 +81,12 @@ public class TorrentMetadata {
 			if(bDec == null)
 				throw new MalformedMetadataException("announce not present in .torrent");
 			result.announce = ((BString)bDec).getValue();
+			
+			bDec = root.get(new BString("announce-list"));
+			if(bDec == null)
+			    result.announceList = Collections.emptyList();
+			result.announceList = ((BList)bDec).stream().map(bs -> ((BString)((BList)bs).get(0)).getValue()).collect(Collectors.toList());
+			
 			
 			bDec = root.get(new BString("creation date"));
 			if(bDec != null)
@@ -190,7 +199,10 @@ public class TorrentMetadata {
 		return announce;
 	}
 
-
+    public List<String> getAnnounceList() {
+        return announceList;
+    }
+	
 	public String getComment() {
 		return comment;
 	}

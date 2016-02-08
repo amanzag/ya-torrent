@@ -34,15 +34,36 @@ public class TrackerManager extends Thread implements TrackerEventProducer {
 	public TrackerManager(TorrentMetadata metadata) throws MalformedURLException {
 		super("TrackerManager");
 		this.metadata = metadata;
-		this.url = new URL(metadata.getAnnounce());
-		if(!url.getProtocol().equals("http"))
-			throw new MalformedURLException("protocol "+url.getProtocol()+" not supported");
+		while(this.url == null) {
+		    try {
+		        setUrl(metadata.getAnnounce());
+		    } catch(MalformedURLException e) {
+		        logger.warning("Can't use default tracker " + metadata.getAnnounce());
+		        for (String announce : metadata.getAnnounceList()) {
+		            try {
+		                setUrl(announce);
+		                break;
+		            } catch (MalformedURLException e2) {
+		                logger.warning("Can't use additional tracker " + metadata.getAnnounce());
+		            }
+                }
+		    }
+		    
+		}
 		eventListeners = new Vector<TrackerEventListener>();
 		state = State.INITIALIZED;
 		lastRequest = System.currentTimeMillis();
 		waitTime = 0;
 		completed = false;
 	}
+	
+	public void setUrl(String urlString) throws MalformedURLException {
+	    this.url = new URL(urlString);
+        if(!this.url.getProtocol().equals("http")) {
+            this.url = null;
+            throw new MalformedURLException("protocol "+url.getProtocol()+" not supported");
+        }
+    }
 	
 	@Override
 	public void run() {
@@ -66,7 +87,7 @@ public class TrackerManager extends Thread implements TrackerEventProducer {
 						req.setDownloaded(0);
 						req.setLeft(10000000);
 						response = TrackerResponse.createFromStream(req.make());
-						logger.info("Request sent to tracker "+metadata.getAnnounce());
+						logger.info("Request sent to tracker "+url);
 						logger.fine("Next request in "+response.getInterval()+" seconds");
 						for (Peer peer : response.getPeers()) {
 							for (TrackerEventListener listener : eventListeners) {
