@@ -8,7 +8,9 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
 import java.util.Vector;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
 import es.amanzag.yatorrent.protocol.Peer;
@@ -29,7 +31,7 @@ public class TrackerManager extends Thread implements TrackerEventProducer {
 	private long lastRequest, waitTime;
 	private boolean completed;
 	
-	private static Logger logger = Logger.getLogger(TrackerManager.class.getName());
+	private static Logger logger = LoggerFactory.getLogger(TrackerManager.class);
 	
 	public TrackerManager(TorrentMetadata metadata) throws MalformedURLException {
 		super("TrackerManager");
@@ -38,13 +40,13 @@ public class TrackerManager extends Thread implements TrackerEventProducer {
 		    try {
 		        setUrl(metadata.getAnnounce());
 		    } catch(MalformedURLException e) {
-		        logger.warning("Can't use default tracker " + metadata.getAnnounce());
+		        logger.warn("Can't use default tracker " + metadata.getAnnounce());
 		        for (String announce : metadata.getAnnounceList()) {
 		            try {
 		                setUrl(announce);
 		                break;
 		            } catch (MalformedURLException e2) {
-		                logger.warning("Can't use additional tracker " + metadata.getAnnounce());
+		                logger.warn("Can't use additional tracker " + metadata.getAnnounce());
 		            }
                 }
 		    }
@@ -69,7 +71,7 @@ public class TrackerManager extends Thread implements TrackerEventProducer {
 	public void run() {
 		TrackerRequest req = null;
 		TrackerResponse response = null;
-		logger.fine("Launching Tracker manager for torrent "+metadata.getName());
+		logger.debug("Launching Tracker manager for torrent "+metadata.getName());
 		while (state != State.STOPPED) {
 			if(System.currentTimeMillis()-lastRequest >= waitTime) {
 				try {
@@ -88,7 +90,7 @@ public class TrackerManager extends Thread implements TrackerEventProducer {
 						req.setLeft(10000000);
 						response = TrackerResponse.createFromStream(req.make());
 						logger.info("Request sent to tracker "+url);
-						logger.fine("Next request in "+response.getInterval()+" seconds");
+						logger.debug("Next request in "+response.getInterval()+" seconds");
 						for (Peer peer : response.getPeers()) {
 							for (TrackerEventListener listener : eventListeners) {
 								listener.peerAddedEvent(peer);
@@ -115,7 +117,7 @@ public class TrackerManager extends Thread implements TrackerEventProducer {
 						req.setLeft(10000000);
 						response = TrackerResponse.createFromStream(req.make());
 						logger.info("Request sent to tracker "+metadata.getAnnounce());
-						logger.fine("Next request in "+response.getInterval()+" seconds");
+						logger.debug("Next request in "+response.getInterval()+" seconds");
 						for (Peer peer : response.getPeers()) {
 //							peer.setInfoHash(metadata.getInfoHash());
 							for (TrackerEventListener listener : eventListeners) {
@@ -139,7 +141,7 @@ public class TrackerManager extends Thread implements TrackerEventProducer {
 						req.setLeft(10000000);
 						response = TrackerResponse.createFromStream(req.make());
 						logger.info("Request sent to tracker "+metadata.getAnnounce());
-						logger.fine("Next request in "+response.getInterval()+" seconds");
+						logger.debug("Next request in "+response.getInterval()+" seconds");
 						for (Peer peer : response.getPeers()) {
 							for (TrackerEventListener listener : eventListeners) {
 								listener.peerAddedEvent(peer);
@@ -153,10 +155,10 @@ public class TrackerManager extends Thread implements TrackerEventProducer {
 					}
 
 				} catch(TrackerProtocolException e) {
-					logger.warning("Error sending request to tracker "+metadata.getAnnounce()+". "+e.getMessage());
+					logger.warn("Error sending request to tracker "+metadata.getAnnounce()+". "+e.getMessage());
 					end();
 				} catch (IOException e) {
-					logger.warning("Error sending request to tracker "+metadata.getAnnounce()+". "+e.getMessage());
+					logger.warn("Error sending request to tracker "+metadata.getAnnounce()+". "+e.getMessage());
 					end();
 				}
 			} else {

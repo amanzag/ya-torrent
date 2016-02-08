@@ -9,7 +9,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import es.amanzag.yatorrent.util.ConfigManager;
 
@@ -19,7 +21,7 @@ import es.amanzag.yatorrent.util.ConfigManager;
  */
 public class MetafileDownloader {
 	
-	private static Logger logger = Logger.getLogger(MetafileDownloader.class.getName());
+	private static Logger logger = LoggerFactory.getLogger(MetafileDownloader.class);
 	
 	private MetafileDownloader() { }
 	

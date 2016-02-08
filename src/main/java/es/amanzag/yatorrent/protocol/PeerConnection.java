@@ -7,7 +7,9 @@ import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import es.amanzag.yatorrent.protocol.messages.MalformedMessageException;
 import es.amanzag.yatorrent.protocol.messages.Message;
@@ -19,7 +21,7 @@ import es.amanzag.yatorrent.protocol.messages.PendingMessage;
  */
 public class PeerConnection implements PeerMessageProducer {
 	
-	private static Logger logger = Logger.getLogger(PeerConnection.class.getName());
+	private static Logger logger = LoggerFactory.getLogger(PeerConnection.class);
 	
 	private Peer peer;
 	private boolean amInterested, amChoking, peerInterested, peerChoking;
@@ -163,7 +165,7 @@ public class PeerConnection implements PeerMessageProducer {
 		try {
 			channel.close();
 		} catch (IOException e) {
-			logger.fine("Error when trying to close connecion with "+peer+". "+e.getMessage());
+			logger.debug("Error when trying to close connecion with "+peer+". "+e.getMessage());
 		}
 	}
 
@@ -182,25 +184,25 @@ public class PeerConnection implements PeerMessageProducer {
 		@Override
 		public void onChoke() {
 			peerChoking = true;
-			logger.finer("Peer "+peer+" has chocked");
+			logger.debug("Peer "+peer+" has chocked");
 		}
 		
 		@Override
 		public void onUnchoke() {
 			peerChoking = false;
-			logger.finer("Peer "+peer+" has unchocked");
+			logger.debug("Peer "+peer+" has unchocked");
 		}
 		
 		@Override
 		public void onInterested() {
 			peerInterested = true;
-			logger.finer("Peer "+peer+" is interested");
+			logger.debug("Peer "+peer+" is interested");
 		}
 		
 		@Override
 		public void onNotInterested() {
 			peerInterested = false;
-			logger.finer("Peer "+peer+" is no longer interested");
+			logger.debug("Peer "+peer+" is no longer interested");
 		}
 		
 		@Override
@@ -208,12 +210,12 @@ public class PeerConnection implements PeerMessageProducer {
 			handshakeReceived = true;
 			PeerConnection.this.infoHash = infoHash;
 			peer.setId(peerId);
-			logger.finer("Handshake received from peer "+peer);
+			logger.debug("Handshake received from peer "+peer);
 		}
 		
 		@Override
 		public void onMessageSent(PendingMessage msg) {
-			logger.finer(msg.getType()+" sent to peer "+peer);
+			logger.debug(msg.getType()+" sent to peer "+peer);
 		}
 		
 		

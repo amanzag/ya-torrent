@@ -9,7 +9,9 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Arrays;
 import java.util.Vector;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import es.amanzag.yatorrent.protocol.messages.MalformedMessageException;
 
@@ -19,7 +21,7 @@ import es.amanzag.yatorrent.protocol.messages.MalformedMessageException;
  */
 public class IncomingConnectionsManager extends Thread implements IncomingConnectionEventProducer {
 	
-	private static Logger logger = Logger.getLogger(TorrentDownloadManager.class.getName());
+	private static Logger logger = LoggerFactory.getLogger(TorrentDownloadManager.class);
 	
 	private ServerSocketChannel serverSock;
 	private int port;
@@ -42,7 +44,7 @@ public class IncomingConnectionsManager extends Thread implements IncomingConnec
 			while(true) {
 				try {
 					SocketChannel clientSock = serverSock.accept();
-					logger.finer("TCP connection received from "+clientSock.socket().getInetAddress());
+					logger.debug("TCP connection received from "+clientSock.socket().getInetAddress());
 					Peer client = new Peer(clientSock.socket().getInetAddress().getHostAddress(),
 							clientSock.socket().getPort());
 					conn = new PeerConnection(client, clientSock);
@@ -59,14 +61,14 @@ public class IncomingConnectionsManager extends Thread implements IncomingConnec
 					// TODO make all this stuff asynchronous in order to implement a timeout
 					conn.doRead();
 				} catch (MalformedMessageException e) {
-					logger.fine("Connection from "+conn.getPeer()+" rejected. "+e.getMessage());
+					logger.debug("Connection from "+conn.getPeer()+" rejected. "+e.getMessage());
 					conn.kill();
 				} catch (IOException e) {
 					
 				}
 			}
 		} catch (IOException e) {
-			logger.severe(e.getMessage());
+			logger.error(e.getMessage(), e);
 		}
 		
 	}

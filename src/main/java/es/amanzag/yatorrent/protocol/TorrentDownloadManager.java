@@ -14,7 +14,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.Vector;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import es.amanzag.yatorrent.metafile.MalformedMetadataException;
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
@@ -30,7 +32,7 @@ import es.amanzag.yatorrent.util.ConfigManager;
  */
 public class TorrentDownloadManager implements IncomingConnectionListener {
 	
-	private static Logger logger = Logger.getLogger(TorrentDownloadManager.class.getName());
+	private static Logger logger = LoggerFactory.getLogger(TorrentDownloadManager.class);
 	
 	private TorrentMetadata metadata;
 	private TrackerManager tracker;
@@ -68,7 +70,7 @@ public class TorrentDownloadManager implements IncomingConnectionListener {
 				while (state != State.DESTROYED) {
 					switch(state) {
 					case INITIALIZED:
-						logger.fine("Torrent "+metadata.getName()+" initialized");
+						logger.debug("Torrent "+metadata.getName()+" initialized");
 						synchronized (this) {
 							if(!start) wait();
 							if(start) {
@@ -107,11 +109,11 @@ public class TorrentDownloadManager implements IncomingConnectionListener {
 					}
 				}
 			} catch (InterruptedException e) {
-				logger.warning(e.getMessage());
+				logger.warn(e.getMessage());
 				doStop();
 				doDestroy();
 			} catch (IOException e) {
-				logger.severe("Unrecoverable IO exception in torrent "+metadata.getName()+". "+e.getMessage());
+				logger.error("Unrecoverable IO exception in torrent "+metadata.getName()+". "+e.getMessage(), e);
 				doStop();
 				doDestroy();
 			}
@@ -123,7 +125,7 @@ public class TorrentDownloadManager implements IncomingConnectionListener {
 		sockSelector = Selector.open();
 		state = State.STARTED;
 		start = false;
-		logger.fine("Torrent "+metadata.getName()+" started");
+		logger.debug("Torrent "+metadata.getName()+" started");
 	}
 	
 	protected void doStop() {
@@ -133,17 +135,17 @@ public class TorrentDownloadManager implements IncomingConnectionListener {
 		try {
 			sockSelector.close();
 		} catch (IOException e) {
-			logger.warning("Error closing socket selector for "+metadata.getName());
+			logger.warn("Error closing socket selector for "+metadata.getName());
 		}
 		state = State.STOPPED;
 		stop = false;
-		logger.fine("Torrent "+metadata.getName()+" stopped");
+		logger.debug("Torrent "+metadata.getName()+" stopped");
 	}
 	
 	protected void doDestroy() {
 		state = State.DESTROYED;
 		destroy = false;
-		logger.fine("Torrent "+metadata.getName()+" destroyed");
+		logger.debug("Torrent "+metadata.getName()+" destroyed");
 	}
 	
 	public void start() {
@@ -173,7 +175,7 @@ public class TorrentDownloadManager implements IncomingConnectionListener {
 			while(connectedPeers.size() < ConfigManager.getMaxConnections() && remainingPeers.size()>0) {
 				Peer peer = null;
 				peer = remainingPeers.get(0);
-				logger.fine("Trying to connect to peer "+peer);
+				logger.debug("Trying to connect to peer "+peer);
 				remainingPeers.remove(peer);
 				try {
 					SocketChannel sock = SocketChannel.open();
@@ -181,7 +183,7 @@ public class TorrentDownloadManager implements IncomingConnectionListener {
 					sock.connect(new InetSocketAddress(peer.getAddress(), peer.getPort()));
 					sock.register(sockSelector, SelectionKey.OP_CONNECT, peer);
 				} catch (IOException e) {
-					logger.fine("Could not connect to peer "+peer);
+					logger.debug("Could not connect to peer "+peer);
 				}
 			}
 		}
@@ -207,10 +209,10 @@ public class TorrentDownloadManager implements IncomingConnectionListener {
 								connectedPeers.add(conn);
 								key.attach(conn);
 								key.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
-								logger.fine("Connected to new peer: "+peer);
+								logger.debug("Connected to new peer: "+peer);
 							}
 						} catch (Exception e) {
-							logger.fine("Can not connect to peer "+peer+". "+e.getMessage());
+							logger.debug("Can not connect to peer "+peer+". "+e.getMessage());
 							key.attach(null);
 							key.cancel();
 						}
@@ -223,7 +225,7 @@ public class TorrentDownloadManager implements IncomingConnectionListener {
 								key.interestOps(key.interestOps() & ~SelectionKey.OP_WRITE);
 							}
 						} catch (Exception e) {
-							logger.fine("Error sending message to "+conn.getPeer()+". Closing connection: "+e.getMessage());
+							logger.debug("Error sending message to "+conn.getPeer()+". Closing connection: "+e.getMessage());
 							conn.kill();
 							key.attach(null);
 							key.cancel();
@@ -235,14 +237,14 @@ public class TorrentDownloadManager implements IncomingConnectionListener {
 						PeerConnection conn = (PeerConnection) key.attachment();
 						try {
 							if(!conn.getChannel().isOpen()) {
-								logger.fine("Socket closed. Connection with "+conn.getPeer()+" dropped");
+								logger.debug("Socket closed. Connection with "+conn.getPeer()+" dropped");
 								conn.kill();
 								key.cancel();
 							} else {
 								conn.doRead();
 							}
 						} catch (Exception e) {
-							logger.fine("Error reading from socket ("+e.getMessage()+"). Closing connection with "+conn.getPeer());
+							logger.debug("Error reading from socket ("+e.getMessage()+"). Closing connection with "+conn.getPeer());
 							conn.kill();
 							key.attach(null);
 							key.cancel();
@@ -266,7 +268,7 @@ public class TorrentDownloadManager implements IncomingConnectionListener {
 			synchronized(remainingPeers) {
 				// FIXME connectedpeers no contiene peers sino peerconnections
 				if(!remainingPeers.contains(peer) && !connectedPeers.contains(peer)) {
-					logger.fine("New peer for download "+metadata.getName()+", "+peer);
+					logger.debug("New peer for download "+metadata.getName()+", "+peer);
 					remainingPeers.add(peer);
 				}
 			}
@@ -287,7 +289,7 @@ public class TorrentDownloadManager implements IncomingConnectionListener {
 				}
 				connectedPeers.add(peer);
 				peer.enqueue(new PendingHandshake(metadata.getInfoHash(),ConfigManager.getClientId().getBytes()));
-				logger.fine("New peer (incoming connection) for download "+metadata.getName()+", "+peer.getPeer());
+				logger.debug("New peer (incoming connection) for download "+metadata.getName()+", "+peer.getPeer());
 				// FIXME
 				try {
 					peer.getChannel().configureBlocking(false);
