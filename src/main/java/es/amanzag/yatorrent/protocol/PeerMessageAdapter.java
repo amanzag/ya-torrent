@@ -13,7 +13,7 @@ public abstract class PeerMessageAdapter {
 	public void onInterested() {}
 	public void onNotInterested() {}
 	public void onHave(int chunkIndex) {}
-	public void onBitfield(byte[] bitfield) {}
+	public void onBitfield(BitField bitField) {}
 	public void onRequest(int chunkIndex, int offset, int length) {}
 	public void onPiece(int chunkIndex, int offset, ByteBuffer data) {}
 	public void onCancel(int chunkIndex, int offset, int length) {}

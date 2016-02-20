@@ -6,11 +6,14 @@ package es.amanzag.yatorrent.protocol;
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import es.amanzag.yatorrent.metafile.TorrentMetadata;
 import es.amanzag.yatorrent.protocol.messages.MalformedMessageException;
 import es.amanzag.yatorrent.protocol.messages.Message;
 import es.amanzag.yatorrent.protocol.messages.PendingMessage;
@@ -25,14 +28,19 @@ public class PeerConnection implements PeerMessageProducer {
 	
 	private Peer peer;
 	private boolean amInterested, amChoking, peerInterested, peerChoking;
-	private byte[] infoHash;
 	private SocketChannel channel;
 	private boolean handshakeSent, handshakeReceived;
 	private List<PeerMessageAdapter> listeners;
 	private Message recv, send;
 	private List<PendingMessage> pending;
 	private PendingMessage currentSending;
+	private Optional<TorrentMetadata> torrentMetadata;
+	private Optional<BitField> bitField;
 	
+	/**
+	 * Sometimes we don't know the infoHash and torrent until we receive the handshake, for instance,
+	 * when we're receiving a connection. That's why we need this constructor.
+	 */
 	public PeerConnection(Peer peer, SocketChannel channel) {
 		this.peer = peer;
 		this.channel = channel;
@@ -50,11 +58,14 @@ public class PeerConnection implements PeerMessageProducer {
 		} catch (MalformedMessageException e) {
 			e.printStackTrace();
 		}
+		torrentMetadata = Optional.empty();
+		bitField = Optional.empty();
 	}
 	
-	public PeerConnection(Peer peer, SocketChannel channel, byte[] infoHash) {
+	public PeerConnection(Peer peer, SocketChannel channel, TorrentMetadata torrentMetadata) {
 		this(peer, channel);
-		this.infoHash = infoHash;
+		this.torrentMetadata = Optional.of(torrentMetadata);
+		this.bitField = Optional.of(new BitField(torrentMetadata.getPieceHashes().size()));
 	}
 
 	public SocketChannel getChannel() {
@@ -125,7 +136,10 @@ public class PeerConnection implements PeerMessageProducer {
 			}
 			break;
 		case BITFIELD:
-			//TODO
+			BitField receivedBitField = Message.parseBitField(msg, bitField.get().getSize());
+			for (PeerMessageAdapter adapter : listeners) {
+			    adapter.onBitfield(receivedBitField);
+			}
 			break;
 		case REQUEST: {
 			int[] params = Message.parseRequest(recv);
@@ -158,8 +172,6 @@ public class PeerConnection implements PeerMessageProducer {
 			break; 
 		}
 	}
-	
-
 	
 	public void kill() {
 		try {
@@ -207,10 +219,21 @@ public class PeerConnection implements PeerMessageProducer {
 		
 		@Override
 		public void onHandshake(byte[] infoHash, byte[] peerId) {
+		    if(torrentMetadata.isPresent() && !Arrays.equals(infoHash, torrentMetadata.get().getInfoHash())) {
+		        throw new TorrentProtocolException("info_hash received in the handshake doesn't correspond to the torrent file");
+		    };
 			handshakeReceived = true;
-			PeerConnection.this.infoHash = infoHash;
 			peer.setId(peerId);
 			logger.debug("Handshake received from peer "+peer);
+		}
+		
+		@Override
+		public void onBitfield(BitField receivedBitField) {
+		    logger.debug("Bitfield received from peer {}", peer);
+		    if(!handshakeReceived) {
+		        throw new TorrentProtocolException("no handshake received before bitfield");
+		    }
+		    bitField.get().add(receivedBitField);
 		}
 		
 		@Override
@@ -223,10 +246,6 @@ public class PeerConnection implements PeerMessageProducer {
 	
 	public Peer getPeer() {
 		return peer;
-	}
-	
-	public byte[] getInfoHash() {
-		return infoHash;
 	}
 	
 	public void enqueue(PendingMessage msg) {

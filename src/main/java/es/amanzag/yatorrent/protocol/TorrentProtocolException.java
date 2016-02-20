@@ -7,7 +7,7 @@ package es.amanzag.yatorrent.protocol;
  * @author Alberto Manzaneque Garcia
  *
  */
-public class TorrentProtocolException extends Exception {
+public class TorrentProtocolException extends RuntimeException {
 
 	/**
 	 * 

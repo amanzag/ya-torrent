@@ -204,7 +204,7 @@ public class TorrentDownloadManager implements IncomingConnectionListener {
 						try {
 							if(channel.isConnectionPending()) {
 								channel.finishConnect();
-								PeerConnection conn = new PeerConnection(peer, channel, metadata.getInfoHash());
+								PeerConnection conn = new PeerConnection(peer, channel, metadata);
 								conn.enqueue(new PendingHandshake(metadata.getInfoHash(), ConfigManager.getClientId().getBytes()));
 								connectedPeers.add(conn);
 								key.attach(conn);
@@ -244,7 +244,7 @@ public class TorrentDownloadManager implements IncomingConnectionListener {
 								conn.doRead();
 							}
 						} catch (Exception e) {
-							logger.debug("Error reading from socket ("+e.getMessage()+"). Closing connection with "+conn.getPeer());
+							logger.error("Error reading from socket ("+e.getMessage()+"). Closing connection with "+conn.getPeer(), e);
 							conn.kill();
 							key.attach(null);
 							key.cancel();

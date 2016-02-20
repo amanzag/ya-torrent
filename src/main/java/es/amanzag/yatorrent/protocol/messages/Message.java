@@ -7,6 +7,9 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ByteChannel;
 
+import es.amanzag.yatorrent.protocol.BitField;
+import es.amanzag.yatorrent.protocol.TorrentProtocolException;
+
 /**
  * @author Alberto Manzaneque Garcia
  *
@@ -35,7 +38,7 @@ public class Message {
 	 * 
 	 */
 	public Message() {
-		this.type = null; // yet undefined
+		this.type = null; // still undefined
 		buffer = ByteBuffer.allocate(MAX_MESSAGE_LENGTH);
 		buffer.mark();
 		valid = false;
@@ -163,6 +166,16 @@ public class Message {
 		msg.getData().position(48);
 		msg.getData().get(result[1], 0, 20);
 		return result;
+	}
+	
+	public static BitField parseBitField(Message msg, int length) {
+	    byte[] bitfield = new byte[msg.length-5];
+	    msg.getData().get(bitfield);
+	    try {
+            return new BitField(length, bitfield);
+        } catch (IllegalArgumentException e) {
+            throw new TorrentProtocolException("Expected bitfield length doesn't match the one received", e);
+        }
 	}
 
 }

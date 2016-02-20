@@ -15,11 +15,6 @@ public class Peer {
 	private int port;
 	private byte[] id;
 	
-	
-//	public Peer(String address, int port, byte[] infoHash) {
-//		this(address, port);
-//	}
-	
 	/** Constructs a Peer without the info_hash. It must be read from the handshake
 	 * or set by the method setInfoHash
 	 */
