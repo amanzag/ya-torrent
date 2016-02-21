@@ -16,8 +16,9 @@ import org.slf4j.LoggerFactory;
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
 import es.amanzag.yatorrent.protocol.messages.MalformedMessageException;
 import es.amanzag.yatorrent.protocol.messages.MessageReader;
-import es.amanzag.yatorrent.protocol.messages.PendingMessage;
+import es.amanzag.yatorrent.protocol.messages.MessageWriter;
 import es.amanzag.yatorrent.protocol.messages.RawMessage;
+import es.amanzag.yatorrent.util.ConfigManager;
 
 /**
  * @author Alberto Manzaneque
@@ -32,9 +33,8 @@ public class PeerConnection implements PeerMessageProducer {
 	private SocketChannel channel;
 	private boolean handshakeSent, handshakeReceived;
 	private List<PeerMessageAdapter> listeners;
-	private MessageReader messageReader, send;
-	private List<PendingMessage> pending;
-	private PendingMessage currentSending;
+	private MessageReader messageReader;
+	private MessageWriter send;
 	private Optional<TorrentMetadata> torrentMetadata;
 	private Optional<BitField> bitField;
 	
@@ -51,9 +51,7 @@ public class PeerConnection implements PeerMessageProducer {
 		listeners = new ArrayList<PeerMessageAdapter>(2);
 		addMessageListener(new MessageProcessor());
 		messageReader = new MessageReader();
-		send = new MessageReader();
-		pending = new ArrayList<PendingMessage>();
-		currentSending = null;
+		send = new MessageWriter();
 		try {
 			messageReader.setHandshakeMode();
 		} catch (MalformedMessageException e) {
@@ -82,30 +80,20 @@ public class PeerConnection implements PeerMessageProducer {
 	}
 	
 	/**
-	 * @return true if there is still something to write
+	 * @return true if there is nothing pending to write
 	 * @throws MalformedMessageException
 	 * @throws IOException
 	 */
 	public boolean doWrite() throws MalformedMessageException, IOException {
-		boolean somethingPending = false;
+	    boolean remaining = false;
 		if(send.isValid()) {
-			int remaining = send.writeToChannel(channel);
-			if(remaining == 0) {
-				for (PeerMessageAdapter l : listeners) {
-					l.onMessageSent(currentSending);
-				}
-				send.reset();
-				currentSending = null;
-				if(pending.size() > 0) {
-					currentSending = pending.remove(0);
-					send.createFromPending(currentSending);
-					somethingPending = true;
-				}
-			} else {
-				somethingPending = true;
+			remaining = !send.writeToChannel(channel);
+			if(!remaining) {
+			    logger.debug("Message sent to peer {}", peer);
+			    // TODO send next
 			}
 		}
-		return somethingPending;
+		return !remaining;
 	}
 	
 	protected void onMessageReceived(RawMessage msg) {
@@ -236,25 +224,16 @@ public class PeerConnection implements PeerMessageProducer {
 		    bitField.get().add(receivedBitField);
 		}
 		
-		@Override
-		public void onMessageSent(PendingMessage msg) {
-			logger.debug(msg.getType()+" sent to peer "+peer);
-		}
-		
-		
 	}
 	
 	public Peer getPeer() {
 		return peer;
 	}
 	
-	public void enqueue(PendingMessage msg) {
-		pending.add(msg);
-		if(!send.isValid()) {
-			PendingMessage tmp = pending.remove(0);
-			send.createFromPending(tmp);
-			currentSending = tmp;
-		}
+	public void sendHandshake() {
+	    send.send(RawMessage.createHandshake(
+	            torrentMetadata.get().getInfoHash(), 
+	            ConfigManager.getClientId().getBytes()));
 	}
 	
 }

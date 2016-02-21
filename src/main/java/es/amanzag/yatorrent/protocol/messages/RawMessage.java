@@ -101,5 +101,20 @@ public class RawMessage {
             throw new TorrentProtocolException("Expected bitfield length doesn't match the one received", e);
         }
     }
+    
+    private final static byte PSTRLEN = (byte)19;
+    private final static byte[] PSTR = "BitTorrent protocol".getBytes();
+    private final static byte[] RESERVED_BYTES = new byte[]{0,0,0,0,0,0,0,0};
+    
+    public static RawMessage createHandshake(byte[] infoHash, byte[] peerId) {
+        ByteBuffer buffer = ByteBuffer.allocate(1 + PSTR.length + RESERVED_BYTES.length + infoHash.length + peerId.length);
+        buffer.put(PSTRLEN);
+        buffer.put(PSTR);
+        buffer.put(RESERVED_BYTES);
+        buffer.put(infoHash);
+        buffer.put(peerId);
+        buffer.flip();
+        return new RawMessage(Type.HANDSHAKE, PSTRLEN, buffer);
+    }
 
 }

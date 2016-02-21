@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 
 import es.amanzag.yatorrent.metafile.MalformedMetadataException;
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
-import es.amanzag.yatorrent.protocol.messages.PendingHandshake;
 import es.amanzag.yatorrent.protocol.tracker.TrackerManager;
 import es.amanzag.yatorrent.storage.TorrentStorage;
 import es.amanzag.yatorrent.util.ConfigManager;
@@ -203,7 +202,7 @@ public class TorrentDownload implements PeerConnectionListener {
                     remainingPeers.remove(peer);
                 }
                 connectedPeers.add(peer);
-                peer.enqueue(new PendingHandshake(metadata.getInfoHash(),ConfigManager.getClientId().getBytes()));
+                peer.sendHandshake();
                 logger.debug("New peer for download "+metadata.getName()+", "+peer.getPeer());
                 // TODO if the connection is connecting to us, we need to register the socket with the selector
             }

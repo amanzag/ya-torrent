@@ -21,9 +21,6 @@ public class MessageReader {
 	private boolean valid;
 	private int length;
 	
-	/**
-	 * 
-	 */
 	public MessageReader() {
 		this.type = null; // still undefined
 		buffer = ByteBuffer.allocate(MAX_MESSAGE_LENGTH);
@@ -77,25 +74,6 @@ public class MessageReader {
 		    return Optional.of(new RawMessage(type, length, buffer));
 		}
 		return Optional.empty();
-	}
-	
-	public void createFromPending(PendingMessage pending) {
-		reset();
-		buffer.clear();
-		buffer.mark();
-		pending.writeToBuffer(buffer);
-		buffer.flip();
-		type = pending.getType();
-		valid = true;
-		length = buffer.limit();
-	}
-	
-	public int writeToChannel(ByteChannel channel) throws MalformedMessageException, IOException {
-		if(!isValid()) {
-            throw new MalformedMessageException("Message is not valid");
-        }
-		channel.write(buffer);
-		return buffer.remaining();
 	}
 	
 	public int remainingBytes() {

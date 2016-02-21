@@ -67,8 +67,12 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
                                     listener.onNewConnection(conn);
                                 }
                             }
-                        } catch (Exception e) {
+                        } catch (IOException e) {
                             logger.debug("Can not connect to peer "+peer+". "+e.getMessage());
+                            key.attach(null);
+                            key.cancel();
+                        } catch (Exception e) {
+                            logger.error("Error establishing connection to "+peer, e);
                             key.attach(null);
                             key.cancel();
                         }
@@ -76,7 +80,7 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
                     if (key.isValid() && key.isWritable()) {
                         PeerConnection conn = (PeerConnection) key.attachment();
                         try {
-                            if(!conn.doWrite()) {
+                            if(conn.doWrite()) {
                                 // nothing more to write -> unset the write interest
                                 key.interestOps(key.interestOps() & ~SelectionKey.OP_WRITE);
                             }
