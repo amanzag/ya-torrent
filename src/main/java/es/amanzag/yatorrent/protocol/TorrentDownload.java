@@ -27,7 +27,6 @@ public class TorrentDownload implements PeerConnectionListener {
 	
 	private TorrentMetadata metadata;
 	private TrackerManager tracker;
-	private DownloadProcess process;
 	private boolean start, stop, destroy;
 	private State state;
 	private List<Peer> remainingPeers;
@@ -46,72 +45,69 @@ public class TorrentDownload implements PeerConnectionListener {
 		tracker.addTrackerEventListener(this::onNewPeerInTheNetwork);
 		networkManager = new TorrentNetworkManager(metadata);
 		networkManager.addPeerConnectionListener(this);
-		process = new DownloadProcess();
 		start = false;
 		stop = false;
 		destroy = false;
 		state = State.INITIALIZED;
-		new Thread(process, metadata.getName()).start();
+		new Thread(this::run, metadata.getName()).start();
 	}
 	
-	private class DownloadProcess implements Runnable {
-		public void run() {
-			tracker.start();
-			// state machine
-			try {
-				while (state != State.DESTROYED) {
-					switch(state) {
-					case INITIALIZED:
-						logger.debug("Torrent "+metadata.getName()+" initialized");
-						synchronized (this) {
-							if(!start) wait();
-							if(start) {
-								// TODO sacar fuera del synchronized lo que pueda tardar
-								doStart();
-							}
+	public void run() {
+		tracker.start();
+		// state machine
+		try {
+			while (state != State.DESTROYED) {
+				switch(state) {
+				case INITIALIZED:
+					logger.debug("Torrent "+metadata.getName()+" initialized");
+					synchronized (this) {
+						if(!start) wait();
+						if(start) {
+							// TODO sacar fuera del synchronized lo que pueda tardar
+							doStart();
 						}
-						break;
-					case STOPPED:
-						synchronized (this) {
-							if(!start && !destroy) wait();
-							if(start) {
-								doStart();
-							}
-							if (destroy) {
-								doDestroy();
-							}
-						}
-						break;
-					case STARTED:
-						synchronized (this) {
-							if(stop) doStop();
-							if(destroy) {
-								doStop();
-								doDestroy();
-							}
-						}
-						makeNewConnections();
-						if(stop || destroy) break;
-						networkManager.processSocketEvents();
-						if(stop || destroy) break;
-						findNewActionsToDo();
-						break;
-					case DESTROYED:
-						break;
 					}
+					break;
+				case STOPPED:
+					synchronized (this) {
+						if(!start && !destroy) wait();
+						if(start) {
+							doStart();
+						}
+						if (destroy) {
+							doDestroy();
+						}
+					}
+					break;
+				case STARTED:
+					synchronized (this) {
+						if(stop) doStop();
+						if(destroy) {
+							doStop();
+							doDestroy();
+						}
+					}
+					makeNewConnections();
+					if(stop || destroy) break;
+					networkManager.processSocketEvents();
+					if(stop || destroy) break;
+					findNewActionsToDo();
+					break;
+				case DESTROYED:
+					break;
 				}
-			} catch (InterruptedException e) {
-				logger.warn(e.getMessage());
-				doStop();
-				doDestroy();
-			} catch (IOException e) {
-				logger.error("Unrecoverable IO exception in torrent "+metadata.getName()+". "+e.getMessage(), e);
-				doStop();
-				doDestroy();
 			}
-			
-		}		
-	}
+		} catch (InterruptedException e) {
+			logger.warn(e.getMessage());
+			doStop();
+			doDestroy();
+		} catch (IOException e) {
+			logger.error("Unrecoverable IO exception in torrent "+metadata.getName()+". "+e.getMessage(), e);
+			doStop();
+			doDestroy();
+		}
+		
+	}		
 	
 	protected void doStart() throws IOException {
 		networkManager.start();
@@ -141,23 +137,23 @@ public class TorrentDownload implements PeerConnectionListener {
 	}
 	
 	public void start() {
-		synchronized (process) {
+		synchronized (this) {
 			start = true;
-			process.notify();
+			this.notify();
 		}
 	}
 	
 	public void stop() {
-		synchronized (process) {
+		synchronized (this) {
 			stop = true;
-			process.notify();
+			this.notify();
 		}
 	}
 	
 	public void destroy() {
-		synchronized (process) {
+		synchronized (this) {
 			destroy = true;
-			process.notify();
+			this.notify();
 		}
 	}
 	
