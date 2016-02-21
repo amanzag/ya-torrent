@@ -19,18 +19,18 @@ import es.amanzag.yatorrent.protocol.messages.MalformedMessageException;
  * @author Alberto Manzaneque
  *
  */
-public class IncomingConnectionsManager extends Thread implements IncomingConnectionEventProducer {
+public class IncomingConnectionsManager extends Thread implements PeerConnectionProducer {
 	
-	private static Logger logger = LoggerFactory.getLogger(TorrentDownloadManager.class);
+	private static Logger logger = LoggerFactory.getLogger(TorrentDownload.class);
 	
 	private ServerSocketChannel serverSock;
 	private int port;
-	private Vector<IncomingConnectionListener> listeners;
+	private Vector<PeerConnectionListener> listeners;
 	private PeerConnection conn;
 	
 	public IncomingConnectionsManager(int port) {
 		this.port = port;
-		listeners = new Vector<IncomingConnectionListener>();
+		listeners = new Vector<PeerConnectionListener>();
 	}
 	
 	@Override
@@ -50,9 +50,9 @@ public class IncomingConnectionsManager extends Thread implements IncomingConnec
 					conn = new PeerConnection(client, clientSock);
 					conn.addMessageListener(new PeerMessageAdapter() {
 						public void onHandshake(byte[] infoHash, byte[] peerId) {
-							for (IncomingConnectionListener torrent : listeners) {
+							for (PeerConnectionListener torrent : listeners) {
 								if(Arrays.equals(infoHash, torrent.getInfoHash())) {
-									torrent.incomingConnectionReceived(conn);
+									torrent.onNewConnection(conn);
 									break;
 								}
 							}
@@ -74,7 +74,7 @@ public class IncomingConnectionsManager extends Thread implements IncomingConnec
 	}
 
 	@Override
-	public void addIncomingConnectionListener(IncomingConnectionListener listener) {
+	public void addPeerConnectionListener(PeerConnectionListener listener) {
 		listeners.add(listener);
 	}
 	
