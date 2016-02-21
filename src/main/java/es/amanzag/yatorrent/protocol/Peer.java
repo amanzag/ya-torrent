@@ -3,7 +3,7 @@
  */
 package es.amanzag.yatorrent.protocol;
 
-
+import java.util.Arrays;
 
 /**
  * @author Alberto Manzaneque
@@ -33,7 +33,7 @@ public class Peer {
 	
 	@Override
 	public String toString() {
-		return "IP: "+address+", port: "+port+", id: "+id;
+		return "IP: "+address+", port: "+port+", id: "+Arrays.toString(id);
 	}
 
 	public String getAddress() {

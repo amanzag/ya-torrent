@@ -11,13 +11,13 @@ import java.nio.ByteBuffer;
  */
 public abstract class PendingMessage {
 	
-	private Message.Type type;
+	private RawMessage.Type type;
 	
-	protected PendingMessage(Message.Type type) {
+	protected PendingMessage(RawMessage.Type type) {
 		this.type = type;
 	}
 
-	public Message.Type getType() {
+	public RawMessage.Type getType() {
 		return type;
 	}
 	

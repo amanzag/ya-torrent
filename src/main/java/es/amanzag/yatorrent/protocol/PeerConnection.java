@@ -15,8 +15,9 @@ import org.slf4j.LoggerFactory;
 
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
 import es.amanzag.yatorrent.protocol.messages.MalformedMessageException;
-import es.amanzag.yatorrent.protocol.messages.Message;
+import es.amanzag.yatorrent.protocol.messages.MessageReader;
 import es.amanzag.yatorrent.protocol.messages.PendingMessage;
+import es.amanzag.yatorrent.protocol.messages.RawMessage;
 
 /**
  * @author Alberto Manzaneque
@@ -31,7 +32,7 @@ public class PeerConnection implements PeerMessageProducer {
 	private SocketChannel channel;
 	private boolean handshakeSent, handshakeReceived;
 	private List<PeerMessageAdapter> listeners;
-	private Message recv, send;
+	private MessageReader messageReader, send;
 	private List<PendingMessage> pending;
 	private PendingMessage currentSending;
 	private Optional<TorrentMetadata> torrentMetadata;
@@ -49,12 +50,12 @@ public class PeerConnection implements PeerMessageProducer {
 		handshakeSent = handshakeReceived = false;
 		listeners = new ArrayList<PeerMessageAdapter>(2);
 		addMessageListener(new MessageProcessor());
-		recv = new Message();
-		send = new Message();
+		messageReader = new MessageReader();
+		send = new MessageReader();
 		pending = new ArrayList<PendingMessage>();
 		currentSending = null;
 		try {
-			recv.setHandshakeMode();
+			messageReader.setHandshakeMode();
 		} catch (MalformedMessageException e) {
 			e.printStackTrace();
 		}
@@ -73,12 +74,11 @@ public class PeerConnection implements PeerMessageProducer {
 	}
 	
 	public void doRead() throws MalformedMessageException, IOException {
-		recv.createFromChannel(channel);
-		if(recv.isValid()) {
-			onMessageReceived(recv);
-			recv.reset();
-			if(!handshakeReceived) recv.setHandshakeMode();
-		}
+		messageReader.readFromChannel(channel).ifPresent(msg -> {
+		    onMessageReceived(msg);
+		    messageReader.reset();
+		    if(!handshakeReceived) messageReader.setHandshakeMode();
+		});;
 	}
 	
 	/**
@@ -108,7 +108,7 @@ public class PeerConnection implements PeerMessageProducer {
 		return somethingPending;
 	}
 	
-	protected void onMessageReceived(Message msg) {
+	protected void onMessageReceived(RawMessage msg) {
 		switch(msg.getType()) {
 		case CHOKE:
 			for (PeerMessageAdapter adapter : listeners) {
@@ -132,17 +132,17 @@ public class PeerConnection implements PeerMessageProducer {
 			break;
 		case HAVE:
 			for (PeerMessageAdapter adapter : listeners) {
-				adapter.onHave(Message.parseHave(recv));
+				adapter.onHave(RawMessage.parseHave(msg));
 			}
 			break;
 		case BITFIELD:
-			BitField receivedBitField = Message.parseBitField(msg, bitField.get().getSize());
+			BitField receivedBitField = RawMessage.parseBitField(msg, bitField.get().getSize());
 			for (PeerMessageAdapter adapter : listeners) {
 			    adapter.onBitfield(receivedBitField);
 			}
 			break;
 		case REQUEST: {
-			int[] params = Message.parseRequest(recv);
+			int[] params = RawMessage.parseRequest(msg);
 			for (PeerMessageAdapter adapter : listeners) {
 				adapter.onRequest(params[0], params[1], params[2]);
 			}
@@ -152,14 +152,14 @@ public class PeerConnection implements PeerMessageProducer {
 			// TODO
 			break;
 		case CANCEL: {
-			int[] params = Message.parseCancel(recv);
+			int[] params = RawMessage.parseCancel(msg);
 			for (PeerMessageAdapter adapter : listeners) {
 				adapter.onCancel(params[0], params[1], params[2]);
 			}
 			break; 
 		}
 		case HANDSHAKE: {
-			byte[][] params = Message.parseHandshake(recv);
+			byte[][] params = RawMessage.parseHandshake(msg);
 			for (PeerMessageAdapter adapter : listeners) {
 				adapter.onHandshake(params[0], params[1]);
 			}

@@ -19,7 +19,7 @@ public class PendingHandshake extends PendingMessage {
 	private byte[] peerId;
 	
 	public PendingHandshake(byte[] infoHash, byte[] peerId) {
-		super(Message.Type.HANDSHAKE);
+		super(RawMessage.Type.HANDSHAKE);
 		this.infoHash = infoHash;
 		this.peerId = peerId;
 	}
