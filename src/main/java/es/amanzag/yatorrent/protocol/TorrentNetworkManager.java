@@ -82,7 +82,8 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
                         try {
                             if(conn.doWrite()) {
                                 // nothing more to write -> unset the write interest
-                                key.interestOps(key.interestOps() & ~SelectionKey.OP_WRITE);
+                                // FIXME this doesn't work well
+//                                key.interestOps(key.interestOps() & ~SelectionKey.OP_WRITE);
                             }
                         } catch (Exception e) {
                             logger.debug("Error sending message to "+conn.getPeer()+". Closing connection: "+e.getMessage());

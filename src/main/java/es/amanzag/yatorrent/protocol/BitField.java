@@ -10,7 +10,6 @@ public class BitField {
     }
     
     public BitField(int numberOfPieces, byte[] statuses) {
-        int btf = statuses.length*8;
         if(numberOfPieces > statuses.length * 8 || numberOfPieces < statuses.length*8-7) {
             throw new IllegalArgumentException("Incorrect bitfield length");
         }
@@ -47,5 +46,18 @@ public class BitField {
     
     public int getSize() {
         return numberOfPieces;
+    }
+    
+    public boolean hasBitsSet() {
+        for (byte b : statuses) {
+            if(b > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    public byte[] asByteArray() {
+        return statuses;
     }
 }

@@ -33,6 +33,7 @@ public class TorrentDownload implements PeerConnectionListener {
 	private List<PeerConnection> connectedPeers;
 	private TorrentStorage storage;
 	private TorrentNetworkManager networkManager;
+	private BitField localBitField;
 	
 	private enum State { INITIALIZED, STARTED, STOPPED, DESTROYED };
 	
@@ -49,6 +50,7 @@ public class TorrentDownload implements PeerConnectionListener {
 		stop = false;
 		destroy = false;
 		state = State.INITIALIZED;
+		localBitField = new BitField(metadata.getPieceHashes().size());
 		new Thread(this::run, metadata.getName()).start();
 	}
 	
@@ -174,10 +176,8 @@ public class TorrentDownload implements PeerConnectionListener {
 		}
 	}
 	
-	
-	
 	private void findNewActionsToDo() {
-		// TODO
+	    // TODO
 	}
 	
 	private void onNewPeerInTheNetwork(Peer peer) {
@@ -198,8 +198,23 @@ public class TorrentDownload implements PeerConnectionListener {
                     remainingPeers.remove(peer);
                 }
                 connectedPeers.add(peer);
-                peer.sendHandshake();
                 logger.debug("New peer for download "+metadata.getName()+", "+peer.getPeer());
+                peer.sendHandshake();
+                
+                peer.addMessageListener(new PeerMessageAdapter() {
+                    @Override
+                    public void onHandshake(byte[] infoHash, byte[] peerId) {
+                        peer.sendBitField(localBitField);
+                    }
+                    @Override
+                    public void onBitfield(BitField bitField) {
+                        if(peer.getBitField().hasBitsSet()) { // TODO intersect with local bitfield
+                            // FIXME I get disconnected if I send "interseted"
+//                            peer.setAmInterested(true);
+                        }
+                    }
+                });
+                
                 // TODO if the connection is connecting to us, we need to register the socket with the selector
             }
         }

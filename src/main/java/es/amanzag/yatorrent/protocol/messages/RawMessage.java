@@ -116,5 +116,29 @@ public class RawMessage {
         buffer.flip();
         return new RawMessage(Type.HANDSHAKE, PSTRLEN, buffer);
     }
+    
+    public static RawMessage createInterested() {
+        ByteBuffer buffer = ByteBuffer.allocate(5);
+        buffer.putInt(1);
+        buffer.put(Type.INTERESTED.getId());
+        buffer.flip();
+        return new RawMessage(Type.INTERESTED, 1, buffer);
+    }
+    public static RawMessage createNotInterested() {
+        ByteBuffer buffer = ByteBuffer.allocate(5);
+        buffer.putInt(1);
+        buffer.put(Type.NOT_INTERESTED.getId());
+        buffer.flip();
+        return new RawMessage(Type.NOT_INTERESTED, 1, buffer);
+    }
+    
+    public static RawMessage createBitField(BitField bitField) {
+        byte[] byteArray = bitField.asByteArray();
+        ByteBuffer buffer = ByteBuffer.allocate(5 + byteArray.length);
+        buffer.putInt(1 + byteArray.length);
+        buffer.put(byteArray);
+        buffer.flip();
+        return new RawMessage(Type.BITFIELD, 1 + byteArray.length, buffer);
+    }
 
 }

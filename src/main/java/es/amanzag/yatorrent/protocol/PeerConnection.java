@@ -205,6 +205,11 @@ public class PeerConnection implements PeerMessageProducer {
 		}
 		
 		@Override
+		public void onHave(int chunkIndex) {
+		    bitField.orElseThrow(() -> new IllegalStateException()).setPresent(chunkIndex, true);
+		}
+		
+		@Override
 		public void onHandshake(byte[] infoHash, byte[] peerId) {
 		    if(torrentMetadata.isPresent() && !Arrays.equals(infoHash, torrentMetadata.get().getInfoHash())) {
 		        throw new TorrentProtocolException("info_hash received in the handshake doesn't correspond to the torrent file");
@@ -229,11 +234,39 @@ public class PeerConnection implements PeerMessageProducer {
 		return peer;
 	}
 	
+	public BitField getBitField() {
+        return bitField.orElseThrow(() -> new IllegalStateException("Peer is not linked to any torrent yet"));
+    }
+	
 	public void sendHandshake() {
 	    messageWriter.send(RawMessage.createHandshake(
 	            torrentMetadata.get().getInfoHash(), 
 	            ConfigManager.getClientId().getBytes()));
 	    logger.debug("Handshake queued to be sent to peer {}", peer);
 	}
+	
+	public void sendBitField(BitField localBitField) {
+	    messageWriter.send(RawMessage.createBitField(localBitField));
+	    logger.debug("Bitfield queued to be sent to peer {}", peer);
+	}
+	
+	public boolean isAmInterested() {
+        return amInterested;
+    }
+	
+	public boolean isPeerInterested() {
+        return peerInterested;
+    }
+	
+	public void setAmInterested(boolean amInterested) {
+	    if(amInterested && !this.amInterested) {
+	        messageWriter.send(RawMessage.createInterested());
+	        logger.debug("Sending Interested message to peer {}", peer);
+	    } else if (!amInterested && this.amInterested) {
+	        messageWriter.send(RawMessage.createNotInterested());
+	        logger.debug("Sending NotInterested message to peer {}", peer);
+	    }
+        this.amInterested = amInterested;
+    }
 	
 }
