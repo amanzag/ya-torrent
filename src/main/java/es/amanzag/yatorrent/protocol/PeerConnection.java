@@ -34,7 +34,7 @@ public class PeerConnection implements PeerMessageProducer {
 	private boolean handshakeSent, handshakeReceived;
 	private List<PeerMessageAdapter> listeners;
 	private MessageReader messageReader;
-	private MessageWriter send;
+	private MessageWriter messageWriter;
 	private Optional<TorrentMetadata> torrentMetadata;
 	private Optional<BitField> bitField;
 	
@@ -51,7 +51,7 @@ public class PeerConnection implements PeerMessageProducer {
 		listeners = new ArrayList<PeerMessageAdapter>(2);
 		addMessageListener(new MessageProcessor());
 		messageReader = new MessageReader();
-		send = new MessageWriter();
+		messageWriter = new MessageWriter();
 		try {
 			messageReader.setHandshakeMode();
 		} catch (MalformedMessageException e) {
@@ -86,11 +86,10 @@ public class PeerConnection implements PeerMessageProducer {
 	 */
 	public boolean doWrite() throws MalformedMessageException, IOException {
 	    boolean remaining = false;
-		if(send.isValid()) {
-			remaining = !send.writeToChannel(channel);
+		if(messageWriter.isBusy()) {
+			remaining = !messageWriter.writeToChannel(channel);
 			if(!remaining) {
 			    logger.debug("Message sent to peer {}", peer);
-			    // TODO send next
 			}
 		}
 		return !remaining;
@@ -231,9 +230,10 @@ public class PeerConnection implements PeerMessageProducer {
 	}
 	
 	public void sendHandshake() {
-	    send.send(RawMessage.createHandshake(
+	    messageWriter.send(RawMessage.createHandshake(
 	            torrentMetadata.get().getInfoHash(), 
 	            ConfigManager.getClientId().getBytes()));
+	    logger.debug("Handshake queued to be sent to peer {}", peer);
 	}
 	
 }

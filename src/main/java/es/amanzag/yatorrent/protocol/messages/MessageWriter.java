@@ -3,48 +3,53 @@ package es.amanzag.yatorrent.protocol.messages;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ByteChannel;
+import java.util.LinkedList;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MessageWriter {
     
-    private ByteBuffer buffer;
-    private boolean done;
+    private final static Logger logger = LoggerFactory.getLogger(MessageWriter.class);
+    
+    private LinkedList<RawMessage> messageQueue;
+    private RawMessage currentSending;
     
     public MessageWriter() {
-        reset();
+        this.messageQueue = new LinkedList<>();
     }
     
     /**
-     * @return true if a message was sent, false if it didn't finish
+     * @return true if there is nothing pending to be sent, false if there is
      * @throws IOException
      */
     public boolean writeToChannel(ByteChannel channel) throws IOException {
-        if(done) {
-            throw new MalformedMessageException("Message is already sent");
+        while(isBusy()) {
+            ByteBuffer buffer = currentSending.getRawData();
+            channel.write(buffer);
+            if(buffer.hasRemaining()) {
+                return false;
+            } else {
+                logger.debug("{} sent", currentSending.getType());
+                currentSending = null;
+                if(!messageQueue.isEmpty()) {
+                    currentSending = messageQueue.removeFirst();
+                }
+            }
         }
-        channel.write(buffer);
-        if(buffer.hasRemaining()) {
-            return false;
-        } else {
-            reset();
-            return true;
-        }
+        return true;
     }
     
     public void send(RawMessage msg) {
-        if(isValid()) {
-            // TODO should messages be queued here?
-            throw new IllegalStateException();
+        if(isBusy()) {
+            messageQueue.add(msg);
+        } else {
+            currentSending = msg;
         }
-        buffer = msg.getRawData();
     }
     
-    private void reset() {
-        buffer = null;
-        done = false;
+    public boolean isBusy() {
+        return currentSending != null || !messageQueue.isEmpty();
     }
     
-    public boolean isValid() {
-        return buffer != null;
-    }
-
 }
