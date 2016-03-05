@@ -269,4 +269,23 @@ public class PeerConnection implements PeerMessageProducer {
         this.amInterested = amInterested;
     }
 	
+	public boolean isAmChoking() {
+        return amChoking;
+    }
+	
+	public boolean isPeerChoking() {
+        return peerChoking;
+    }
+	
+	public void setAmChoking(boolean amChoking) {
+	    if(amChoking && !this.amChoking) {
+	        messageWriter.send(RawMessage.createChoke());
+	        logger.debug("Sending Choke message to peer {}", peer);
+	    } else if(!amChoking && this.amChoking) {
+	        messageWriter.send(RawMessage.createUnchoke());
+	        logger.debug("Sending Unchoke message to peer {}", peer);
+	    }
+        this.amChoking = amChoking;
+    }
+	
 }

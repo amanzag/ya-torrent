@@ -209,8 +209,7 @@ public class TorrentDownload implements PeerConnectionListener {
                     @Override
                     public void onBitfield(BitField bitField) {
                         if(peer.getBitField().hasBitsSet()) { // TODO intersect with local bitfield
-                            // FIXME I get disconnected if I send "interseted"
-//                            peer.setAmInterested(true);
+                            peer.setAmInterested(true);
                         }
                     }
                 });

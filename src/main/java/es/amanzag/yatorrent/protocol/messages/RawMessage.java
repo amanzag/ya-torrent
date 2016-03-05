@@ -131,11 +131,25 @@ public class RawMessage {
         buffer.flip();
         return new RawMessage(Type.NOT_INTERESTED, 1, buffer);
     }
-    
+    public static RawMessage createChoke() {
+        ByteBuffer buffer = ByteBuffer.allocate(5);
+        buffer.putInt(1);
+        buffer.put(Type.CHOKE.getId());
+        buffer.flip();
+        return new RawMessage(Type.CHOKE, 1, buffer);
+    }
+    public static RawMessage createUnchoke() {
+        ByteBuffer buffer = ByteBuffer.allocate(5);
+        buffer.putInt(1);
+        buffer.put(Type.UNCHOKE.getId());
+        buffer.flip();
+        return new RawMessage(Type.UNCHOKE, 1, buffer);
+    }
     public static RawMessage createBitField(BitField bitField) {
         byte[] byteArray = bitField.asByteArray();
         ByteBuffer buffer = ByteBuffer.allocate(5 + byteArray.length);
         buffer.putInt(1 + byteArray.length);
+        buffer.put(Type.BITFIELD.getId());
         buffer.put(byteArray);
         buffer.flip();
         return new RawMessage(Type.BITFIELD, 1 + byteArray.length, buffer);
