@@ -123,6 +123,10 @@ public class TorrentStorage {
 		return tmp;
 	}
 	
+	public Chunk chunk(int index) {
+	    return chunks.get(index);
+	}
+	
 	public void releaseChunk(Chunk ch) throws TorrentStorageException {
 		if(!ch.isLocked()) throw new TorrentStorageException("Chunk "+ch.getIndex()+" was not locked");
 		ch.setLocked(false);
