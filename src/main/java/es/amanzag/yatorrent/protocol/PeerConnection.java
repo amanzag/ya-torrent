@@ -4,6 +4,7 @@
 package es.amanzag.yatorrent.protocol;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -135,9 +136,13 @@ public class PeerConnection implements PeerMessageProducer {
 			}
 			break; 
 		}
-		case PIECE:
-			// TODO
-			break;
+		case PIECE: {
+		    Object[] params = RawMessage.parsePiece(msg);
+		    for (PeerMessageAdapter adapter : listeners) {
+		        adapter.onPiece((Integer)params[0], (Integer)params[1], (ByteBuffer)params[2]);
+		    }
+		    break;
+		}
 		case CANCEL: {
 			int[] params = RawMessage.parseCancel(msg);
 			for (PeerMessageAdapter adapter : listeners) {
@@ -287,5 +292,11 @@ public class PeerConnection implements PeerMessageProducer {
 	    }
         this.amChoking = amChoking;
     }
+	
+	public void requestPiece(int pieceIndex, int offset, int length) {
+	    messageWriter.send(RawMessage.createRequest(pieceIndex, offset, length));
+	    logger.debug("Sending Request message [index={}, offset={}, length={}] to peer {}", 
+	            pieceIndex, offset, length, peer);
+	}
 	
 }

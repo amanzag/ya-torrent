@@ -102,6 +102,14 @@ public class RawMessage {
         }
     }
     
+    public static Object[] parsePiece(RawMessage msg) {
+        msg.getRawData().position(msg.getRawData().position()+5);
+        int index = msg.getRawData().getInt();
+        int begin = msg.getRawData().getInt();
+        ByteBuffer block = msg.getRawData().slice();
+        return new Object[] { index, begin, block };
+    }
+    
     private final static byte PSTRLEN = (byte)19;
     private final static byte[] PSTR = "BitTorrent protocol".getBytes();
     private final static byte[] RESERVED_BYTES = new byte[]{0,0,0,0,0,0,0,0};
@@ -153,6 +161,16 @@ public class RawMessage {
         buffer.put(byteArray);
         buffer.flip();
         return new RawMessage(Type.BITFIELD, 1 + byteArray.length, buffer);
+    }
+    public static RawMessage createRequest(int pieceIndex, int offset, int length) {
+        ByteBuffer buffer = ByteBuffer.allocate(4+1+12);
+        buffer.putInt(13);
+        buffer.put(Type.REQUEST.getId());
+        buffer.putInt(pieceIndex);
+        buffer.putInt(offset);
+        buffer.putInt(length);
+        buffer.flip();
+        return new RawMessage(Type.REQUEST, 13, buffer);
     }
 
 }

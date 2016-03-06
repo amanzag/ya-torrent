@@ -5,7 +5,9 @@ package es.amanzag.yatorrent.protocol;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
 
 import org.slf4j.Logger;
@@ -34,6 +36,7 @@ public class TorrentDownload implements PeerConnectionListener {
 	private TorrentStorage storage;
 	private TorrentNetworkManager networkManager;
 	private BitField localBitField;
+	private PieceDownloader pieceDownloader;
 	
 	private enum State { INITIALIZED, STARTED, STOPPED, DESTROYED };
 	
@@ -51,6 +54,8 @@ public class TorrentDownload implements PeerConnectionListener {
 		destroy = false;
 		state = State.INITIALIZED;
 		localBitField = new BitField(metadata.getPieceHashes().size());
+		pieceDownloader = new PieceDownloader(connectedPeers, localBitField, storage);
+		
 		new Thread(this::run, metadata.getName()).start();
 	}
 	
@@ -177,7 +182,7 @@ public class TorrentDownload implements PeerConnectionListener {
 	}
 	
 	private void findNewActionsToDo() {
-	    // TODO
+	    pieceDownloader.scheduleDownloads();
 	}
 	
 	private void onNewPeerInTheNetwork(Peer peer) {

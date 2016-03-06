@@ -53,4 +53,8 @@ public class Chunk {
 		return locked;
 	}
 	
+	public int getRemaining() {
+	    return length-completion;
+	}
+	
 }

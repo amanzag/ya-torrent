@@ -57,6 +57,25 @@ public class BitField {
         return false;
     }
     
+    public BitField intersection(BitField other) {
+        if (this.numberOfPieces != other.numberOfPieces) {
+            throw new IllegalArgumentException();
+        }
+        byte[] result = new byte[statuses.length];
+        for (int i=0; i<this.statuses.length; i++) {
+            result[i] = (byte) (this.statuses[i] & other.statuses[i]);
+        }
+        return new BitField(this.numberOfPieces, result);
+    }
+
+    public BitField reverse() {
+        byte[] result = new byte[statuses.length];
+        for (int i=0; i<this.statuses.length; i++) {
+            result[i] = (byte) ~this.statuses[i];
+        }
+        return new BitField(this.numberOfPieces, result);
+    }
+    
     public byte[] asByteArray() {
         return statuses;
     }
