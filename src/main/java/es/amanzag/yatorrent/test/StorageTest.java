@@ -9,7 +9,7 @@ import java.nio.ByteBuffer;
 import es.amanzag.yatorrent.metafile.MalformedMetadataException;
 import es.amanzag.yatorrent.metafile.MetafileDownloader;
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
-import es.amanzag.yatorrent.storage.Chunk;
+import es.amanzag.yatorrent.storage.Piece;
 import es.amanzag.yatorrent.storage.TorrentStorage;
 import es.amanzag.yatorrent.storage.TorrentStorageException;
 
@@ -38,15 +38,15 @@ public class StorageTest {
 //		incoming.start();
 //		System.out.println("end");
 		
-		Chunk ch2 = storage.lockChunk(2);
-		storage.releaseChunk(ch2);
-		storage.lockChunk(2);
+		Piece ch2 = storage.lockPiece(2);
+		storage.releasePiece(ch2);
+		storage.lockPiece(2);
 		storage.write(ByteBuffer.wrap(new byte[]{-1}), ch2);
 
-		Chunk ch1 = storage.lockChunk(0);
+		Piece ch1 = storage.lockPiece(0);
 		storage.write(ByteBuffer.wrap(new byte[]{1,1,1}), ch1);
 		
-		Chunk ch5 = storage.lockChunk(5);
+		Piece ch5 = storage.lockPiece(5);
 		storage.write(ByteBuffer.wrap(new byte[]{1,2,3,4,5,6,7,8,9}), ch5);
 		
 		storage.close();

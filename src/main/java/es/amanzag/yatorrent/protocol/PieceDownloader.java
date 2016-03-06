@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 
-import es.amanzag.yatorrent.storage.Chunk;
+import es.amanzag.yatorrent.storage.Piece;
 import es.amanzag.yatorrent.storage.TorrentStorage;
 import es.amanzag.yatorrent.storage.TorrentStorageException;
 
@@ -40,7 +40,7 @@ public class PieceDownloader {
             .forEach(peerConnection -> {
                 findDownloadablePiece(peerConnection, piecesNeeded).ifPresent(pieceIndex -> {
                     try {
-                        Chunk piece = storage.lockChunk(pieceIndex);
+                        Piece piece = storage.lockPiece(pieceIndex);
                         int tempCompletion = piece.getCompletion();
                         while(tempCompletion < piece.getLength()) {
                             peerConnection.requestPiece(pieceIndex, tempCompletion, Math.min(REQUEST_SIZE, piece.getLength()-tempCompletion));

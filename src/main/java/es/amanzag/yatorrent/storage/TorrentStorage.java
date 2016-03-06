@@ -29,7 +29,7 @@ public class TorrentStorage {
 	private File dataFile, stateFile, torrentFile, tempDir;
 	private FileChannel dataChannel, stateChannel;
 	private TorrentMetadata metadata;
-	private List<Chunk> chunks;
+	private List<Piece> pieces;
 	
 	public TorrentStorage(TorrentMetadata metadata, File tempTorrent) throws IOException {
 		tempDir = new File(ConfigManager.getTempDir()+"/"+metadata.getName());
@@ -41,7 +41,7 @@ public class TorrentStorage {
 		initFiles();
 		dataChannel = new RandomAccessFile(dataFile, "rw").getChannel();
 		stateChannel = new RandomAccessFile(stateFile, "rw").getChannel();
-		initChunks();
+		initPieces();
 	}
 	
 	/**
@@ -71,9 +71,9 @@ public class TorrentStorage {
 		
 		if(!stateFile.exists()) {
 			FileChannel out = new FileOutputStream(stateFile).getChannel();
-			int numChunks = metadata.getPieceHashes().size();
+			int numPieces = metadata.getPieceHashes().size();
 			ByteBuffer zero = ByteBuffer.wrap(new byte[] {0,0,0,0});
-			for(int i=0; i<numChunks; i++) {
+			for(int i=0; i<numPieces; i++) {
 				// XXX hay que hacer algo mas con el bytebuffer??
 				out.write(zero);
 				zero.clear();
@@ -83,31 +83,31 @@ public class TorrentStorage {
 		
 	}
 	
-	private void initChunks() throws IOException {
+	private void initPieces() throws IOException {
 		ByteBuffer states = ByteBuffer.allocate((int)stateChannel.size());
 		stateChannel.position(0);
 		stateChannel.read(states);
 		states.flip();
-		chunks = new ArrayList<Chunk>(metadata.getPieceHashes().size());
-		Chunk tmpChunk = null;
+		pieces = new ArrayList<Piece>(metadata.getPieceHashes().size());
+		Piece tmpPiece = null;
 		List<byte[]> pieceHashes = metadata.getPieceHashes();
 		for(int i=0; i < pieceHashes.size()-1; i++) {
-			tmpChunk = new Chunk(i, metadata.getPieceLength(), pieceHashes.get(i));
-			tmpChunk.markCompleted(states.getInt());
-			chunks.add(tmpChunk);
+			tmpPiece = new Piece(i, metadata.getPieceLength(), pieceHashes.get(i));
+			tmpPiece.markCompleted(states.getInt());
+			pieces.add(tmpPiece);
 		}
 		
-		tmpChunk = new Chunk(pieceHashes.size(), (int)metadata.getTotalLength()%metadata.getPieceLength(), pieceHashes.get(pieceHashes.size()-1));
-		chunks.add(tmpChunk);
-		tmpChunk.markCompleted(states.getInt());		
+		tmpPiece = new Piece(pieceHashes.size(), (int)metadata.getTotalLength()%metadata.getPieceLength(), pieceHashes.get(pieceHashes.size()-1));
+		pieces.add(tmpPiece);
+		tmpPiece.markCompleted(states.getInt());		
 	}
 	
 	
 	public void forceSave() throws IOException {
 		dataChannel.force(false);
 		
-		ByteBuffer buf = ByteBuffer.allocate(chunks.size()*4);
-		for (Chunk ch : chunks) {
+		ByteBuffer buf = ByteBuffer.allocate(pieces.size()*4);
+		for (Piece ch : pieces) {
 			buf.putInt(ch.getCompletion());
 		}
 		buf.flip();
@@ -116,30 +116,30 @@ public class TorrentStorage {
 		stateChannel.force(false);
 	}
 	
-	public Chunk lockChunk(int index) throws TorrentStorageException {
-		Chunk tmp = chunks.get(index);
-		if(tmp.isLocked()) throw new TorrentStorageException("Chunk "+index+" is already locked");
+	public Piece lockPiece(int index) throws TorrentStorageException {
+		Piece tmp = pieces.get(index);
+		if(tmp.isLocked()) throw new TorrentStorageException("Piece "+index+" is already locked");
 		tmp.setLocked(true);
 		return tmp;
 	}
 	
-	public Chunk chunk(int index) {
-	    return chunks.get(index);
+	public Piece piece(int index) {
+	    return pieces.get(index);
 	}
 	
-	public void releaseChunk(Chunk ch) throws TorrentStorageException {
-		if(!ch.isLocked()) throw new TorrentStorageException("Chunk "+ch.getIndex()+" was not locked");
+	public void releasePiece(Piece ch) throws TorrentStorageException {
+		if(!ch.isLocked()) throw new TorrentStorageException("Piece "+ch.getIndex()+" was not locked");
 		ch.setLocked(false);
 	}
 	
-	public void write(ByteBuffer data, Chunk chunk) throws IOException, TorrentStorageException {
-		if(!chunk.isLocked()) throw new TorrentStorageException("Chunk "+chunk.getIndex()+" is not locked so is not writable");
+	public void write(ByteBuffer data, Piece piece) throws IOException, TorrentStorageException {
+		if(!piece.isLocked()) throw new TorrentStorageException("Piece "+piece.getIndex()+" is not locked so is not writable");
 		int toWrite = data.remaining();
-		dataChannel.position(chunk.getIndex()*metadata.getPieceLength() + chunk.getCompletion());
+		dataChannel.position(piece.getIndex()*metadata.getPieceLength() + piece.getCompletion());
 		int written = dataChannel.write(data);
 		if(toWrite != written)
 			throw new IOException("Not all data could be written");
-		chunk.markCompleted(written);
+		piece.markCompleted(written);
 	}
 	
 	public void close() throws IOException {

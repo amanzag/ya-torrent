@@ -7,13 +7,13 @@ package es.amanzag.yatorrent.storage;
  * @author Alberto Manzaneque
  *
  */
-public class Chunk {
+public class Piece {
 	
 	private int index, length, completion;
 	private boolean locked;
 	private byte[] checksum;
 	
-	public Chunk(int index, int length, byte[] checksum) {
+	public Piece(int index, int length, byte[] checksum) {
 		this.index = index;
 		this.length = length;
 		this.checksum = checksum;
