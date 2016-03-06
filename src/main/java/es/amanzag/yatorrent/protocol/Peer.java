@@ -4,6 +4,9 @@
 package es.amanzag.yatorrent.protocol;
 
 import java.util.Arrays;
+import java.util.Optional;
+
+import es.amanzag.yatorrent.util.Util;
 
 /**
  * @author Alberto Manzaneque
@@ -33,7 +36,8 @@ public class Peer {
 	
 	@Override
 	public String toString() {
-		return "IP: "+address+", port: "+port+", id: "+Arrays.toString(id);
+		return "IP: "+address+", port: "+port+", id: " +
+		        Optional.ofNullable(id).map(Util::bytesToHex).orElse("null");
 	}
 
 	public String getAddress() {
