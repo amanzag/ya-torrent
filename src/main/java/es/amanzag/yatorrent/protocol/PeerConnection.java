@@ -37,7 +37,7 @@ public class PeerConnection implements PeerMessageProducer {
 	private boolean amInterested, amChoking, peerInterested, peerChoking;
 	private SocketChannel channel;
 	private boolean handshakeSent, handshakeReceived;
-	private List<PeerMessageAdapter> listeners;
+	private List<PeerMessageListener> listeners;
 	private MessageReader messageReader;
 	private MessageWriter messageWriter;
 	private Optional<TorrentMetadata> torrentMetadata;
@@ -54,7 +54,7 @@ public class PeerConnection implements PeerMessageProducer {
 		amInterested = peerInterested = false;
 		amChoking = peerChoking = true;
 		handshakeSent = handshakeReceived = false;
-		listeners = new ArrayList<PeerMessageAdapter>(2);
+		listeners = new ArrayList<PeerMessageListener>(2);
 		addMessageListener(new MessageProcessor());
 		messageReader = new MessageReader();
 		messageWriter = new MessageWriter();
@@ -154,24 +154,24 @@ public class PeerConnection implements PeerMessageProducer {
 	}
 
 	@Override
-	public void addMessageListener(PeerMessageAdapter listener) {
+	public void addMessageListener(PeerMessageListener listener) {
 		if(!listeners.contains(listener)) {
             listeners.add(listener);
         }
 	}
 
 	@Override
-	public void removeMessageListener(PeerMessageAdapter listener) {
+	public void removeMessageListener(PeerMessageListener listener) {
 		listeners.remove(listener);
 	}
 	
-	private void notifyMessageListeners(Consumer<PeerMessageAdapter> c) {
-	    for (PeerMessageAdapter peerMessageAdapter : listeners) {
+	private void notifyMessageListeners(Consumer<PeerMessageListener> c) {
+	    for (PeerMessageListener peerMessageAdapter : listeners) {
             c.accept(peerMessageAdapter);
         }
 	}
 	
-	private class MessageProcessor extends PeerMessageAdapter {
+	private class MessageProcessor implements PeerMessageListener {
 		@Override
 		public void onChoke() {
 			peerChoking = true;

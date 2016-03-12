@@ -206,7 +206,7 @@ public class TorrentDownload implements PeerConnectionListener {
                 logger.debug("New peer for download "+metadata.getName()+", "+peer.getPeer());
                 peer.sendHandshake();
                 
-                peer.addMessageListener(new PeerMessageAdapter() {
+                peer.addMessageListener(new PeerMessageListener() {
                     @Override
                     public void onHandshake(byte[] infoHash, byte[] peerId) {
                         peer.sendBitField(localBitField);

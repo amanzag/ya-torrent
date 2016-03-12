@@ -9,7 +9,7 @@ package es.amanzag.yatorrent.protocol;
  */
 public interface PeerMessageProducer {
 	
-	void addMessageListener(PeerMessageAdapter listener);
-	void removeMessageListener(PeerMessageAdapter listener);
+	void addMessageListener(PeerMessageListener listener);
+	void removeMessageListener(PeerMessageListener listener);
 
 }

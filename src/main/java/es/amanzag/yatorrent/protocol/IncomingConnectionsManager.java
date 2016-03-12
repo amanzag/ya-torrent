@@ -48,7 +48,7 @@ public class IncomingConnectionsManager extends Thread implements PeerConnection
 					Peer client = new Peer(clientSock.socket().getInetAddress().getHostAddress(),
 							clientSock.socket().getPort());
 					conn = new PeerConnection(client, clientSock);
-					conn.addMessageListener(new PeerMessageAdapter() {
+					conn.addMessageListener(new PeerMessageListener() {
 						public void onHandshake(byte[] infoHash, byte[] peerId) {
 							for (PeerConnectionListener torrent : listeners) {
 								if(Arrays.equals(infoHash, torrent.getInfoHash())) {
