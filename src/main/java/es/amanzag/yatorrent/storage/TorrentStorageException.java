@@ -7,7 +7,7 @@ package es.amanzag.yatorrent.storage;
  * @author Alberto Manzaneque
  *
  */
-public class TorrentStorageException extends Exception {
+public class TorrentStorageException extends RuntimeException {
 
 	/**
 	 * 

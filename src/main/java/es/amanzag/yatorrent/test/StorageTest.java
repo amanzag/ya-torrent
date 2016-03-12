@@ -38,18 +38,18 @@ public class StorageTest {
 //		incoming.start();
 //		System.out.println("end");
 		
-		Piece ch2 = storage.lockPiece(2);
-		storage.releasePiece(ch2);
-		storage.lockPiece(2);
-		storage.write(ByteBuffer.wrap(new byte[]{-1}), ch2);
-
-		Piece ch1 = storage.lockPiece(0);
-		storage.write(ByteBuffer.wrap(new byte[]{1,1,1}), ch1);
-		
-		Piece ch5 = storage.lockPiece(5);
-		storage.write(ByteBuffer.wrap(new byte[]{1,2,3,4,5,6,7,8,9}), ch5);
-		
-		storage.close();
+//		Piece ch2 = storage.lockPiece(2);
+//		storage.releasePiece(ch2);
+//		storage.lockPiece(2);
+//		storage.write(ByteBuffer.wrap(new byte[]{-1}), ch2);
+//
+//		Piece ch1 = storage.lockPiece(0);
+//		storage.write(ByteBuffer.wrap(new byte[]{1,1,1}), ch1);
+//		
+//		Piece ch5 = storage.lockPiece(5);
+//		storage.write(ByteBuffer.wrap(new byte[]{1,2,3,4,5,6,7,8,9}), ch5);
+//		
+//		storage.close();
 		
 	}
 

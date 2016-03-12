@@ -20,7 +20,7 @@ import es.amanzag.yatorrent.util.ConfigManager;
  * @author Alberto Manzaneque
  *
  */
-public class TorrentStorage {
+public class TorrentStorage implements AutoCloseable {
 	
 	private final static String TORRENT_FILENAME = "torrent";
 	private final static String DATA_FILENAME = "data";
@@ -61,24 +61,24 @@ public class TorrentStorage {
 	
 		File tmp = new File(tempDir, TORRENT_FILENAME);
 		if(!tmp.exists()) {
-			FileChannel in = new FileInputStream(torrentFile).getChannel();
-			FileChannel out = new FileOutputStream(tmp).getChannel();
-			in.transferTo(0, in.size(), out);
-			in.close();
-			out.close();
-		}
+            try (FileChannel in = new FileInputStream(torrentFile).getChannel();
+                    FileChannel out = new FileOutputStream(tmp).getChannel()) {
+
+                in.transferTo(0, in.size(), out);
+            }
+        }
 		torrentFile = tmp;
 		
 		if(!stateFile.exists()) {
-			FileChannel out = new FileOutputStream(stateFile).getChannel();
-			int numPieces = metadata.getPieceHashes().size();
-			ByteBuffer zero = ByteBuffer.wrap(new byte[] {0,0,0,0});
-			for(int i=0; i<numPieces; i++) {
-				// XXX hay que hacer algo mas con el bytebuffer??
-				out.write(zero);
-				zero.clear();
-			}
-			out.close();
+		    try (FileChannel out = new FileOutputStream(stateFile).getChannel()) {
+		        int numPieces = metadata.getPieceHashes().size();
+		        ByteBuffer zero = ByteBuffer.wrap(new byte[] {0,0,0,0});
+		        for(int i=0; i<numPieces; i++) {
+		            // XXX hay que hacer algo mas con el bytebuffer??
+		            out.write(zero);
+		            zero.clear();
+		        }
+		    }
 		}
 		
 	}
@@ -92,12 +92,17 @@ public class TorrentStorage {
 		Piece tmpPiece = null;
 		List<byte[]> pieceHashes = metadata.getPieceHashes();
 		for(int i=0; i < pieceHashes.size()-1; i++) {
-			tmpPiece = new Piece(i, metadata.getPieceLength(), pieceHashes.get(i));
+			tmpPiece = new Piece(i, metadata.getPieceLength(), pieceHashes.get(i), dataChannel, metadata);
 			tmpPiece.markCompleted(states.getInt());
 			pieces.add(tmpPiece);
 		}
 		
-		tmpPiece = new Piece(pieceHashes.size(), (int)metadata.getTotalLength()%metadata.getPieceLength(), pieceHashes.get(pieceHashes.size()-1));
+		tmpPiece = new Piece(
+		        pieceHashes.size(), 
+		        (int)metadata.getTotalLength()  %metadata.getPieceLength(), 
+		        pieceHashes.get(pieceHashes.size()-1),
+		        dataChannel,
+		        metadata);
 		pieces.add(tmpPiece);
 		tmpPiece.markCompleted(states.getInt());		
 	}
@@ -116,32 +121,14 @@ public class TorrentStorage {
 		stateChannel.force(false);
 	}
 	
-	public Piece lockPiece(int index) throws TorrentStorageException {
-		Piece tmp = pieces.get(index);
-		if(tmp.isLocked()) throw new TorrentStorageException("Piece "+index+" is already locked");
-		tmp.setLocked(true);
-		return tmp;
-	}
-	
 	public Piece piece(int index) {
+	    if(index >= pieces.size()) {
+	        throw new IndexOutOfBoundsException();
+	    }
 	    return pieces.get(index);
 	}
 	
-	public void releasePiece(Piece ch) throws TorrentStorageException {
-		if(!ch.isLocked()) throw new TorrentStorageException("Piece "+ch.getIndex()+" was not locked");
-		ch.setLocked(false);
-	}
-	
-	public void write(ByteBuffer data, Piece piece) throws IOException, TorrentStorageException {
-		if(!piece.isLocked()) throw new TorrentStorageException("Piece "+piece.getIndex()+" is not locked so is not writable");
-		int toWrite = data.remaining();
-		dataChannel.position(piece.getIndex()*metadata.getPieceLength() + piece.getCompletion());
-		int written = dataChannel.write(data);
-		if(toWrite != written)
-			throw new IOException("Not all data could be written");
-		piece.markCompleted(written);
-	}
-	
+	@Override
 	public void close() throws IOException {
 		forceSave();
 		dataChannel.close();

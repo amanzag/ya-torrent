@@ -17,7 +17,6 @@ public class ManagerTest {
 	 * @param args
 	 */
 	public static void main(String[] args) throws MalformedURLException, IOException, MalformedMetadataException {
-		System.out.println("start");
 		File torrentFile = MetafileDownloader.download(
 		        new URL("http://dl7.torrentreactor.net/download.php?id=18512523&name=American+Dad+S11E15+HDTV+x264-LOL%5Bettv%5D&hash=055c047535925358181004dc279617eff2ca3cbc"));
 		// more initialization code
@@ -26,7 +25,6 @@ public class ManagerTest {
 		incoming.addPeerConnectionListener(dm);
 		dm.start();
 		incoming.start();
-		System.out.println("end");
 	}
 
 }

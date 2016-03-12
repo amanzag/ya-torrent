@@ -10,10 +10,11 @@ public abstract class PeerMessageAdapter {
 	public void onUnchoke() {}
 	public void onInterested() {}
 	public void onNotInterested() {}
-	public void onHave(int chunkIndex) {}
+	public void onHave(int pieceIndex) {}
 	public void onBitfield(BitField bitField) {}
-	public void onRequest(int chunkIndex, int offset, int length) {}
-	public void onPiece(int chunkIndex, int offset, ByteBuffer data) {}
-	public void onCancel(int chunkIndex, int offset, int length) {}
+	public void onRequest(int pieceIndex, int offset, int length) {}
+	public void onBlock(int pieceIndex, int offset, ByteBuffer data) {}
+	public void onCancel(int pieceIndex, int offset, int length) {}
+	public void onPiece(int pieceIndex) {}
 
 }

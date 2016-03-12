@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +20,8 @@ import es.amanzag.yatorrent.protocol.messages.MalformedMessageException;
 import es.amanzag.yatorrent.protocol.messages.MessageReader;
 import es.amanzag.yatorrent.protocol.messages.MessageWriter;
 import es.amanzag.yatorrent.protocol.messages.RawMessage;
+import es.amanzag.yatorrent.storage.Piece;
+import es.amanzag.yatorrent.storage.TorrentStorageException;
 import es.amanzag.yatorrent.util.ConfigManager;
 
 /**
@@ -27,6 +30,7 @@ import es.amanzag.yatorrent.util.ConfigManager;
  */
 public class PeerConnection implements PeerMessageProducer {
 	
+    private final static int BLOCK_SIZE = 16 * 1024;
 	private static Logger logger = LoggerFactory.getLogger(PeerConnection.class);
 	
 	private Peer peer;
@@ -38,6 +42,7 @@ public class PeerConnection implements PeerMessageProducer {
 	private MessageWriter messageWriter;
 	private Optional<TorrentMetadata> torrentMetadata;
 	private Optional<BitField> bitField;
+	private Optional<Piece> pieceDownloading;
 	
 	/**
 	 * Sometimes we don't know the infoHash and torrent until we receive the handshake, for instance,
@@ -53,13 +58,10 @@ public class PeerConnection implements PeerMessageProducer {
 		addMessageListener(new MessageProcessor());
 		messageReader = new MessageReader();
 		messageWriter = new MessageWriter();
-		try {
-			messageReader.setHandshakeMode();
-		} catch (MalformedMessageException e) {
-			e.printStackTrace();
-		}
+		messageReader.setHandshakeMode();
 		torrentMetadata = Optional.empty();
 		bitField = Optional.empty();
+		pieceDownloading = Optional.empty();
 	}
 	
 	public PeerConnection(Peer peer, SocketChannel channel, TorrentMetadata torrentMetadata) {
@@ -99,68 +101,46 @@ public class PeerConnection implements PeerMessageProducer {
 	protected void onMessageReceived(RawMessage msg) {
 		switch(msg.getType()) {
 		case CHOKE:
-			for (PeerMessageAdapter adapter : listeners) {
-				adapter.onChoke();
-			}
+		    notifyMessageListeners(c -> c.onChoke());
 			break;
 		case UNCHOKE:
-			for (PeerMessageAdapter adapter : listeners) {
-				adapter.onUnchoke();
-			}
+		    notifyMessageListeners(c -> c.onUnchoke());
 			break;
 		case INTERESTED:
-			for (PeerMessageAdapter adapter : listeners) {
-				adapter.onInterested();
-			}
+		    notifyMessageListeners(c -> c.onInterested());
 			break;
 		case NOT_INTERESTED:
-			for (PeerMessageAdapter adapter : listeners) {
-				adapter.onNotInterested();
-			}
+		    notifyMessageListeners(c -> c.onNotInterested());
 			break;
 		case HAVE:
-			for (PeerMessageAdapter adapter : listeners) {
-				adapter.onHave(RawMessage.parseHave(msg));
-			}
+		    notifyMessageListeners(c -> c.onHave(RawMessage.parseHave(msg)));
 			break;
 		case BITFIELD:
 			BitField receivedBitField = RawMessage.parseBitField(msg, bitField.get().getSize());
-			for (PeerMessageAdapter adapter : listeners) {
-			    adapter.onBitfield(receivedBitField);
-			}
+			notifyMessageListeners(c -> c.onBitfield(receivedBitField));
 			break;
 		case REQUEST: {
 			int[] params = RawMessage.parseRequest(msg);
-			for (PeerMessageAdapter adapter : listeners) {
-				adapter.onRequest(params[0], params[1], params[2]);
-			}
+			notifyMessageListeners(c -> c.onRequest(params[0], params[1], params[2]));
 			break; 
 		}
 		case PIECE: {
 		    Object[] params = RawMessage.parsePiece(msg);
-		    for (PeerMessageAdapter adapter : listeners) {
-		        adapter.onPiece((Integer)params[0], (Integer)params[1], (ByteBuffer)params[2]);
-		    }
+		    notifyMessageListeners(c -> c.onBlock((Integer)params[0], (Integer)params[1], (ByteBuffer)params[2]));
 		    break;
 		}
 		case CANCEL: {
 			int[] params = RawMessage.parseCancel(msg);
-			for (PeerMessageAdapter adapter : listeners) {
-				adapter.onCancel(params[0], params[1], params[2]);
-			}
+			notifyMessageListeners(c -> c.onCancel(params[0], params[1], params[2]));
 			break; 
 		}
 		case HANDSHAKE: {
 			byte[][] params = RawMessage.parseHandshake(msg);
-			for (PeerMessageAdapter adapter : listeners) {
-				adapter.onHandshake(params[0], params[1]);
-			}
+			notifyMessageListeners(c -> c.onHandshake(params[0], params[1]));
 			break; 		
 		}
 		case KEEP_ALIVE:
-			for (PeerMessageAdapter adapter : listeners) {
-				adapter.onKeepAlive();
-			}
+		    notifyMessageListeners(c -> c.onKeepAlive());
 			break; 
 		}
 	}
@@ -175,13 +155,20 @@ public class PeerConnection implements PeerMessageProducer {
 
 	@Override
 	public void addMessageListener(PeerMessageAdapter listener) {
-		if(!listeners.contains(listener))
-			listeners.add(listener);
+		if(!listeners.contains(listener)) {
+            listeners.add(listener);
+        }
 	}
 
 	@Override
 	public void removeMessageListener(PeerMessageAdapter listener) {
 		listeners.remove(listener);
+	}
+	
+	private void notifyMessageListeners(Consumer<PeerMessageAdapter> c) {
+	    for (PeerMessageAdapter peerMessageAdapter : listeners) {
+            c.accept(peerMessageAdapter);
+        }
 	}
 	
 	private class MessageProcessor extends PeerMessageAdapter {
@@ -233,6 +220,36 @@ public class PeerConnection implements PeerMessageProducer {
 		    bitField.get().add(receivedBitField);
 		}
 		
+		@Override
+		public void onBlock(int index, int offset, ByteBuffer data) {
+		    if (!pieceDownloading.isPresent()) {
+		        logger.error("Got a block that wasn't expecting. Closing connection with peer {}", peer);
+		        kill();
+		    }
+		    Piece piece = pieceDownloading.get();
+		    if(piece.getIndex() != index) {
+		        logger.error("Got block of a different piece than expected");
+		    } else if(piece.getCompletion() != offset) {
+		        logger.error("Piece {}. Got block starting in {} but was expecting {}",
+		                index, offset, piece.getCompletion());
+		    } else {
+		        logger.debug("Received block [index={}, offset={}, length={}] from peer {}",
+		                index, offset, data.remaining(), peer);
+		        try {
+		            piece.write(data);
+		            if(piece.isComplete()) {
+		                logger.debug("Finished downloading piece {}", index);
+		                pieceDownloading = Optional.empty();
+		                piece.unlock();
+		                notifyMessageListeners(listener -> listener.onPiece(piece.getIndex()));
+		            }
+		        } catch (IOException e) {
+		            logger.warn("Error writing to file", e);
+		        } catch (TorrentStorageException e) {
+		            logger.error("Error storing piece", e);
+		        }
+		    }
+		}
 	}
 	
 	public Peer getPeer() {
@@ -244,9 +261,13 @@ public class PeerConnection implements PeerMessageProducer {
     }
 	
 	public void sendHandshake() {
+	    if (handshakeSent) {
+	        throw new TorrentProtocolException("Trying to send a handshake but it was already sent");
+	    }
 	    messageWriter.send(RawMessage.createHandshake(
 	            torrentMetadata.get().getInfoHash(), 
 	            ConfigManager.getClientId().getBytes()));
+	    handshakeSent = true;
 	    logger.debug("Handshake queued to be sent to peer {}", peer);
 	}
 	
@@ -293,10 +314,28 @@ public class PeerConnection implements PeerMessageProducer {
         this.amChoking = amChoking;
     }
 	
-	public void requestPiece(int pieceIndex, int offset, int length) {
+	private void requestBlock(int pieceIndex, int offset, int length) {
 	    messageWriter.send(RawMessage.createRequest(pieceIndex, offset, length));
 	    logger.debug("Sending Request message [index={}, offset={}, length={}] to peer {}", 
 	            pieceIndex, offset, length, peer);
+	}
+	
+	public void download(Piece piece) {
+	    logger.debug("Starting download of piece {} from peer {}", piece.getIndex(), peer);
+	    if (isDownloading()) {
+	        throw new IllegalStateException("Already downloading a piece, can't start downloading another one");
+	    }
+	    piece.lock();
+	    pieceDownloading = Optional.of(piece);
+	    int tempCompletion = piece.getCompletion();
+        while(tempCompletion < piece.getLength()) {
+            requestBlock(piece.getIndex(), tempCompletion, Math.min(BLOCK_SIZE, piece.getLength()-tempCompletion));
+            tempCompletion += BLOCK_SIZE;
+        }
+	}
+	
+	public boolean isDownloading() {
+	    return pieceDownloading.isPresent();
 	}
 	
 }
