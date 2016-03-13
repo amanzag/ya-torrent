@@ -152,6 +152,10 @@ public class PeerConnection implements PeerMessageProducer {
 		} catch (IOException e) {
 			logger.debug("Error when trying to close connecion with "+peer+". "+e.getMessage());
 		}
+		if(isDownloading()) {
+		    pieceDownloading.get().unlock();
+		    pieceDownloading = Optional.empty();
+		}
 		notifyMessageListeners(listener -> listener.onDisconnect());
 		listeners.clear();
 	}
@@ -169,9 +173,7 @@ public class PeerConnection implements PeerMessageProducer {
 	}
 	
 	private void notifyMessageListeners(Consumer<PeerMessageListener> c) {
-	    for (PeerMessageListener peerMessageAdapter : listeners) {
-            c.accept(peerMessageAdapter);
-        }
+	    new ArrayList<>(listeners).stream().forEach(c);
 	}
 	
 	private class MessageProcessor implements PeerMessageListener {
@@ -232,9 +234,11 @@ public class PeerConnection implements PeerMessageProducer {
 		    Piece piece = pieceDownloading.get();
 		    if(piece.getIndex() != index) {
 		        logger.error("Got block of a different piece than expected");
+		        kill();
 		    } else if(piece.getCompletion() != offset) {
 		        logger.error("Piece {}. Got block starting in {} but was expecting {}",
 		                index, offset, piece.getCompletion());
+		        kill();
 		    } else {
 		        logger.debug("Received block [index={}, offset={}, length={}] from peer {}",
 		                index, offset, data.remaining(), peer);
