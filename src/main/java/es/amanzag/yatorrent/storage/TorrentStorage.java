@@ -96,7 +96,7 @@ public class TorrentStorage implements AutoCloseable {
 		pieces = new ArrayList<Piece>(metadata.getPieceHashes().size());
 		Piece tmpPiece = null;
 		List<byte[]> pieceHashes = metadata.getPieceHashes();
-		for(int i=0; i < pieceHashes.size()-1; i++) {
+		for(int i=0; i < pieceHashes.size() - 1; i++) {
 			tmpPiece = new Piece(i, metadata.getPieceLength(), pieceHashes.get(i), dataChannel, metadata);
 			tmpPiece.markCompleted(states.getInt());
 			pieces.add(tmpPiece);
@@ -104,7 +104,7 @@ public class TorrentStorage implements AutoCloseable {
 		}
 		
 		tmpPiece = new Piece(
-		        pieceHashes.size(), 
+		        pieceHashes.size() - 1, 
 		        (int)metadata.getTotalLength()  %metadata.getPieceLength(), 
 		        pieceHashes.get(pieceHashes.size()-1),
 		        dataChannel,
