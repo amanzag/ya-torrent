@@ -29,6 +29,17 @@ public class PieceDownloader {
             .filter(peer -> !currentDownloads.containsKey(peer))
             .forEach(peerConnection -> {
                 findDownloadablePiece(peerConnection, piecesNeeded).ifPresent(pieceIndex -> {
+                    PeerMessageListener listener = new PeerMessageListener() {
+                        @Override public void onDisconnect() {
+                            currentDownloads.remove(peerConnection);
+                        }
+                        @Override public void onPiece(int receivedPieceIndex) {
+                            currentDownloads.remove(peerConnection);
+                            // FIXME
+//                            peerConnection.removeMessageListener(listener);
+                        }
+                    };
+                    peerConnection.addMessageListener(listener);
                     peerConnection.download(storage.piece(pieceIndex));
                     currentDownloads.put(peerConnection, pieceIndex);
                 });

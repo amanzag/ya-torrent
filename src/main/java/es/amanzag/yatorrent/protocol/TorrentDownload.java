@@ -5,9 +5,7 @@ package es.amanzag.yatorrent.protocol;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Vector;
 
 import org.slf4j.Logger;
@@ -213,9 +211,16 @@ public class TorrentDownload implements PeerConnectionListener {
                     }
                     @Override
                     public void onBitfield(BitField bitField) {
-                        if(peer.getBitField().hasBitsSet()) { // TODO intersect with local bitfield
-                            peer.setAmInterested(true);
-                        }
+                        peer.setAmInterested(hasAnInterestingPiece(bitField));
+                    }
+                    @Override
+                    public void onHave(int pieceIndex) {
+                        peer.setAmInterested(hasAnInterestingPiece(peer.getBitField()));
+                    }
+                    @Override
+                    public void onPiece(int pieceIndex) {
+                        localBitField.setPresent(pieceIndex, true);
+                        peer.setAmInterested(hasAnInterestingPiece(peer.getBitField()));
                     }
                 });
                 
@@ -232,6 +237,10 @@ public class TorrentDownload implements PeerConnectionListener {
     @Override
     public byte[] getInfoHash() {
         return metadata.getInfoHash();
+    }
+    
+    private boolean hasAnInterestingPiece(BitField remoteBitField) {
+        return localBitField.reverse().intersection(remoteBitField).hasBitsSet();
     }
 
 }

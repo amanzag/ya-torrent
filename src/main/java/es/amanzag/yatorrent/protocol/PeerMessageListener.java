@@ -16,5 +16,6 @@ public interface PeerMessageListener {
 	default void onBlock(int pieceIndex, int offset, ByteBuffer data) {}
 	default void onCancel(int pieceIndex, int offset, int length) {}
 	default void onPiece(int pieceIndex) {}
+	default void onDisconnect() {}
 
 }

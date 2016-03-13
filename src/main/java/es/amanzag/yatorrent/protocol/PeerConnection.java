@@ -146,11 +146,14 @@ public class PeerConnection implements PeerMessageProducer {
 	}
 	
 	public void kill() {
+	    logger.debug("Closing peer {}", peer);
 		try {
 			channel.close();
 		} catch (IOException e) {
 			logger.debug("Error when trying to close connecion with "+peer+". "+e.getMessage());
 		}
+		notifyMessageListeners(listener -> listener.onDisconnect());
+		listeners.clear();
 	}
 
 	@Override
