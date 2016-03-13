@@ -33,7 +33,7 @@ public class BitField {
         if (present) {
             newByte = (byte) (statuses[byteIndex] | ((byte)0x01 << offset));
         } else {
-            newByte = (byte) (statuses[byteIndex] & ((byte)0xfe << offset));
+            newByte = (byte) (statuses[byteIndex] & ~((byte)0x01 << offset));
         }
         statuses[byteIndex] = newByte;
     }

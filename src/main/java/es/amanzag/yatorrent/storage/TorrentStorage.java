@@ -13,7 +13,11 @@ import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
+import es.amanzag.yatorrent.protocol.BitField;
 import es.amanzag.yatorrent.util.ConfigManager;
 
 /**
@@ -21,6 +25,8 @@ import es.amanzag.yatorrent.util.ConfigManager;
  *
  */
 public class TorrentStorage implements AutoCloseable {
+    
+    private final static Logger logger = LoggerFactory.getLogger(TorrentStorage.class);
 	
 	private final static String TORRENT_FILENAME = "torrent";
 	private final static String DATA_FILENAME = "data";
@@ -74,7 +80,6 @@ public class TorrentStorage implements AutoCloseable {
 		        int numPieces = metadata.getPieceHashes().size();
 		        ByteBuffer zero = ByteBuffer.wrap(new byte[] {0,0,0,0});
 		        for(int i=0; i<numPieces; i++) {
-		            // XXX hay que hacer algo mas con el bytebuffer??
 		            out.write(zero);
 		            zero.clear();
 		        }
@@ -95,6 +100,7 @@ public class TorrentStorage implements AutoCloseable {
 			tmpPiece = new Piece(i, metadata.getPieceLength(), pieceHashes.get(i), dataChannel, metadata);
 			tmpPiece.markCompleted(states.getInt());
 			pieces.add(tmpPiece);
+			logger.debug("Piece {} is complete: {}", tmpPiece.getIndex(), tmpPiece.isComplete());
 		}
 		
 		tmpPiece = new Piece(
@@ -104,7 +110,8 @@ public class TorrentStorage implements AutoCloseable {
 		        dataChannel,
 		        metadata);
 		pieces.add(tmpPiece);
-		tmpPiece.markCompleted(states.getInt());		
+		tmpPiece.markCompleted(states.getInt());	
+		logger.debug("Piece {} is complete: {}", tmpPiece.getIndex(), tmpPiece.isComplete());
 	}
 	
 	
@@ -133,6 +140,14 @@ public class TorrentStorage implements AutoCloseable {
 		forceSave();
 		dataChannel.close();
 		stateChannel.close();
+	}
+	
+	public BitField asBitField() {
+	    BitField bf = new BitField(pieces.size());
+	    for (Piece piece : pieces) {
+            bf.setPresent(piece.getIndex(), piece.isComplete());
+        }
+	    return bf;
 	}
 
 }

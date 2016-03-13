@@ -55,4 +55,13 @@ public class BitFieldTest {
         assertThat(bf.isPresent(bits-2), is(false));
     }
     
+    @Test
+    public void testSetAndUnsetWithinSameByte() throws Exception {
+        BitField bf = new BitField(18);
+        bf.setPresent(2, true);
+        bf.setPresent(4, false);
+        assertThat(bf.isPresent(2), is(true));
+        assertThat(bf.isPresent(4), is(false));
+    }
+    
 }

@@ -87,15 +87,14 @@ public class PeerConnection implements PeerMessageProducer {
 	 * @throws MalformedMessageException
 	 * @throws IOException
 	 */
-	public boolean doWrite() throws MalformedMessageException, IOException {
-	    boolean remaining = false;
+	public void doWrite() throws MalformedMessageException, IOException {
 		if(messageWriter.isBusy()) {
-			remaining = !messageWriter.writeToChannel(channel);
-			if(!remaining) {
-			    logger.debug("Message sent to peer {}", peer);
-			}
+			messageWriter.writeToChannel(channel);
 		}
-		return !remaining;
+	}
+	
+	public boolean isWriting() {
+	    return messageWriter.isBusy();
 	}
 	
 	protected void onMessageReceived(RawMessage msg) {
@@ -180,13 +179,13 @@ public class PeerConnection implements PeerMessageProducer {
 		@Override
 		public void onChoke() {
 			peerChoking = true;
-			logger.debug("Peer "+peer+" has chocked");
+			logger.debug("Peer "+peer+" has choked");
 		}
 		
 		@Override
 		public void onUnchoke() {
 			peerChoking = false;
-			logger.debug("Peer "+peer+" has unchocked");
+			logger.debug("Peer "+peer+" has unchoked");
 		}
 		
 		@Override

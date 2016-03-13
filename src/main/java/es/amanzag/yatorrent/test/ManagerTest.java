@@ -25,6 +25,17 @@ public class ManagerTest {
 		incoming.addPeerConnectionListener(dm);
 		dm.start();
 		incoming.start();
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+		    @Override
+		    public void run() {
+		        dm.stop();
+		        try {
+                    dm.getTorrentThread().join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+		    }
+		});
 	}
 
 }

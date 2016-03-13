@@ -35,6 +35,7 @@ public class TorrentDownload implements PeerConnectionListener {
 	private TorrentNetworkManager networkManager;
 	private BitField localBitField;
 	private PieceDownloader pieceDownloader;
+	private Thread torrentThread;
 	
 	private enum State { INITIALIZED, STARTED, STOPPED, DESTROYED };
 	
@@ -51,11 +52,16 @@ public class TorrentDownload implements PeerConnectionListener {
 		stop = false;
 		destroy = false;
 		state = State.INITIALIZED;
-		localBitField = new BitField(metadata.getPieceHashes().size());
+		localBitField = storage.asBitField();
 		pieceDownloader = new PieceDownloader(connectedPeers, localBitField, storage);
 		
-		new Thread(this::run, metadata.getName()).start();
+		torrentThread = new Thread(this::run, metadata.getName());
+		torrentThread.start();
 	}
+	
+	public Thread getTorrentThread() {
+        return torrentThread;
+    }
 	
 	public void run() {
 		tracker.start();
@@ -132,6 +138,11 @@ public class TorrentDownload implements PeerConnectionListener {
 		}
 		state = State.STOPPED;
 		stop = false;
+		try {
+            storage.forceSave();
+        } catch (IOException e) {
+            logger.error("Error saving torrent files", e);
+        }
 		logger.debug("Torrent "+metadata.getName()+" stopped");
 	}
 	

@@ -66,6 +66,15 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
                                 for (PeerConnectionListener listener : listeners) {
                                     listener.onNewConnection(conn);
                                 }
+                                conn.addMessageListener(new PeerMessageListener() {
+                                    @Override
+                                    public void onDisconnect() {
+                                        SelectionKey sk = conn.getChannel().keyFor(sockSelector);
+                                        if(sk != null) {
+                                            sk.cancel();
+                                        }
+                                    }
+                                });
                             }
                         } catch (IOException e) {
                             logger.debug("Can not connect to peer "+peer+". "+e.getMessage());
@@ -80,10 +89,9 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
                     if (key.isValid() && key.isWritable()) {
                         PeerConnection conn = (PeerConnection) key.attachment();
                         try {
-                            if(conn.doWrite()) {
-                                // nothing more to write -> unset the write interest
-                                // FIXME this doesn't work well
-//                                key.interestOps(key.interestOps() & ~SelectionKey.OP_WRITE);
+                            conn.doWrite();
+                            if(!conn.isWriting()) {
+                                key.interestOps(key.interestOps() & ~SelectionKey.OP_WRITE);
                             }
                         } catch (Exception e) {
                             logger.debug("Error sending message to "+conn.getPeer()+". Closing connection: "+e.getMessage());
@@ -91,12 +99,9 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
                                 listener.onConnectionLost(conn);
                             }
                             conn.kill();
-                            key.attach(null);
-                            key.cancel();
                         }
                     } 
                     if (key.isValid() && key.isReadable()) {
-                        // TODO
                         PeerConnection conn = (PeerConnection) key.attachment();
                         try {
                             if(!conn.getChannel().isOpen()) {
@@ -115,10 +120,17 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
                                 listener.onConnectionLost(conn);
                             }
                             conn.kill();
-                            key.attach(null);
-                            key.cancel();
                         }
-                        
+                    }
+                }
+            }
+            // after processing all events, maybe some connections are now interested in writing, so we have to enable it
+            for (SelectionKey key : sockSelector.keys()) {
+                if (key.isValid() && key.attachment() instanceof PeerConnection) {
+                    PeerConnection pc = (PeerConnection) key.attachment();
+                    boolean writeInterest = (key.interestOps() & SelectionKey.OP_WRITE) > 0;
+                    if(!writeInterest && pc != null && pc.isWriting()) {
+                        key.interestOps(key.interestOps() | SelectionKey.OP_WRITE);
                     }
                 }
             }
