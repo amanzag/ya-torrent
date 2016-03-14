@@ -10,6 +10,12 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.CopyOption;
+import java.nio.file.Files;
+import java.nio.file.OpenOption;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
+import es.amanzag.yatorrent.metafile.TorrentMetadata.ContainedFile;
 import es.amanzag.yatorrent.protocol.BitField;
 import es.amanzag.yatorrent.util.ConfigManager;
 
@@ -148,6 +155,27 @@ public class TorrentStorage implements AutoCloseable {
             bf.setPresent(piece.getIndex(), piece.isComplete());
         }
 	    return bf;
+	}
+	
+	public void commit() throws IOException {
+	    logger.info("Writing torrent data to {}", ConfigManager.getIncomingDir());
+	    Path baseDir = Paths.get(ConfigManager.getIncomingDir());
+	    if(metadata.isMultifile()) {
+	        baseDir = baseDir.resolve(metadata.getDirectory());
+	    }
+	    Files.createDirectories(baseDir);
+	    if(!metadata.isMultifile()) {
+	        Files.copy(dataFile.toPath(), baseDir.resolve(metadata.getDirectory()));
+	    } else {
+	        int position = 0;
+	        for (ContainedFile cf : metadata.getFiles()) {
+	            try (FileChannel fc = FileChannel.open(baseDir.resolve(cf.getName()), StandardOpenOption.WRITE, StandardOpenOption.CREATE);) {
+	                logger.debug("Writing file {}", cf.getName());
+	                dataChannel.transferTo(position, cf.getLength(), fc);
+	                position += cf.getLength();
+	            }
+	        }
+	    }
 	}
 
 }

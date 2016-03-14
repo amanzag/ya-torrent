@@ -98,6 +98,7 @@ public class TorrentDownload implements PeerConnectionListener {
 							doDestroy();
 						}
 					}
+					checkCompletionStatus();
 					makeNewConnections();
 					if(stop || destroy) break;
 					networkManager.processSocketEvents();
@@ -252,6 +253,17 @@ public class TorrentDownload implements PeerConnectionListener {
     
     private boolean hasAnInterestingPiece(BitField remoteBitField) {
         return localBitField.reverse().intersection(remoteBitField).hasBitsSet();
+    }
+    
+    private void checkCompletionStatus() {
+        if (!localBitField.hasBitsUnset()) {
+            logger.info("Torrent {} completed", metadata.getName());
+            try {
+                storage.commit();
+            } catch (IOException e) {
+                logger.error("Error while writing torrent data", e);
+            }
+        }
     }
 
 }

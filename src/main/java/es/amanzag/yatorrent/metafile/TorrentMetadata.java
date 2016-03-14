@@ -131,6 +131,7 @@ public class TorrentMetadata {
                 }
 				result.files.add(cFile);
 			} else if((root.get("files")) != null) { // multifile torrent
+			    result.multifile = true;
 			    result.directory = (String) root.get("name");
 				if(result.directory == null) {
                     throw new MalformedMetadataException("file name not present in .torrent");

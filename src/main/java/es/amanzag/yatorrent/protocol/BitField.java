@@ -50,11 +50,26 @@ public class BitField {
     
     public boolean hasBitsSet() {
         for (byte b : statuses) {
-            if(b > 0) {
+            if(b != 0) {
                 return true;
             }
         }
         return false;
+    }
+    
+    public boolean hasBitsUnset() {
+        for (int i=0; i<statuses.length-1; i++) {
+            if(~statuses[i] != 0) {
+                return true;
+            }
+        }
+        byte lastByte = statuses[statuses.length-1];
+        int numberOfBitsInLast = numberOfPieces % 8;
+        if(numberOfBitsInLast==0) {
+            return ~lastByte != 0;
+        }
+        byte lastMask = (byte) (0xFF << numberOfBitsInLast);
+        return (byte)~(lastByte | lastMask) != 0;
     }
     
     public BitField intersection(BitField other) {
