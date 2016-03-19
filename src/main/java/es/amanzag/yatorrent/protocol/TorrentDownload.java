@@ -47,7 +47,7 @@ public class TorrentDownload implements PeerConnectionListener {
 		remainingPeers = new Vector<Peer>();
 		connectedPeers = new Vector<PeerConnection>();
 		tracker.addTrackerEventListener(this::onNewPeerInTheNetwork);
-		networkManager = new TorrentNetworkManager(metadata);
+		networkManager = new TorrentNetworkManager(metadata, storage);
 		networkManager.addPeerConnectionListener(this);
 		start = false;
 		stop = false;

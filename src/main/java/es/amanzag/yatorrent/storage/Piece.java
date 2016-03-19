@@ -93,4 +93,12 @@ public class Piece {
         markCompleted(written);
 	}
 	
+	public void read(ByteBuffer buffer, int offset) throws IOException {
+	    if(!isComplete()) {
+	        throw new IllegalStateException("Piece "+index+"is not complete so is not readable");
+	    }
+	    dataChannel.position(index * metadata.getPieceLength() + offset);
+	    dataChannel.read(buffer);
+	}
+	
 }

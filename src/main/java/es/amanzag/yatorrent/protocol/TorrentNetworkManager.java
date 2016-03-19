@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
+import es.amanzag.yatorrent.storage.TorrentStorage;
 
 public class TorrentNetworkManager implements PeerConnectionProducer {
     
@@ -21,11 +22,13 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
 
     private Selector sockSelector;
     private TorrentMetadata metadata;
+    private TorrentStorage storage;
     private List<PeerConnectionListener> listeners;
     
-    public TorrentNetworkManager(TorrentMetadata metadata) {
+    public TorrentNetworkManager(TorrentMetadata metadata, TorrentStorage storage) {
         sockSelector = null;
         this.metadata = metadata;
+        this.storage = storage;
         this.listeners = new ArrayList<>();
     }
     
@@ -59,7 +62,7 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
                         try {
                             if(channel.isConnectionPending()) {
                                 channel.finishConnect();
-                                PeerConnection conn = new PeerConnection(peer, channel, metadata);
+                                PeerConnection conn = new PeerConnection(peer, channel, storage, metadata);
                                 key.attach(conn);
                                 key.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
                                 logger.debug("Connected to new peer: "+peer);

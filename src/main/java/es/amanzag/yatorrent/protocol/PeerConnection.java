@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -21,6 +22,7 @@ import es.amanzag.yatorrent.protocol.messages.MessageReader;
 import es.amanzag.yatorrent.protocol.messages.MessageWriter;
 import es.amanzag.yatorrent.protocol.messages.RawMessage;
 import es.amanzag.yatorrent.storage.Piece;
+import es.amanzag.yatorrent.storage.TorrentStorage;
 import es.amanzag.yatorrent.storage.TorrentStorageException;
 import es.amanzag.yatorrent.util.ConfigManager;
 
@@ -30,7 +32,8 @@ import es.amanzag.yatorrent.util.ConfigManager;
  */
 public class PeerConnection implements PeerMessageProducer {
 	
-    private final static int BLOCK_SIZE = 16 * 1024;
+    private final static int MAX_BLOCK_REQUEST = 16 * 1024;
+    private final static int BLOCK_SIZE = MAX_BLOCK_REQUEST;
 	private static Logger logger = LoggerFactory.getLogger(PeerConnection.class);
 	
 	private Peer peer;
@@ -43,6 +46,10 @@ public class PeerConnection implements PeerMessageProducer {
 	private Optional<TorrentMetadata> torrentMetadata;
 	private Optional<BitField> bitField;
 	private Optional<Piece> pieceDownloading;
+	private Optional<TorrentStorage> storage;
+	
+	private LinkedList<BlockRequest> requestsQueue;
+	private final static int MAX_REQUEST_QUEUE_SIZE = 10;
 	
 	/**
 	 * Sometimes we don't know the infoHash and torrent until we receive the handshake, for instance,
@@ -62,12 +69,14 @@ public class PeerConnection implements PeerMessageProducer {
 		torrentMetadata = Optional.empty();
 		bitField = Optional.empty();
 		pieceDownloading = Optional.empty();
+		requestsQueue = new LinkedList<>();
 	}
 	
-	public PeerConnection(Peer peer, SocketChannel channel, TorrentMetadata torrentMetadata) {
+	public PeerConnection(Peer peer, SocketChannel channel, TorrentStorage storage, TorrentMetadata torrentMetadata) {
 		this(peer, channel);
 		this.torrentMetadata = Optional.of(torrentMetadata);
 		this.bitField = Optional.of(new BitField(torrentMetadata.getPieceHashes().size()));
+		this.storage = Optional.of(storage);
 	}
 
 	public SocketChannel getChannel() {
@@ -78,7 +87,9 @@ public class PeerConnection implements PeerMessageProducer {
 		messageReader.readFromChannel(channel).ifPresent(msg -> {
 		    onMessageReceived(msg);
 		    messageReader.reset();
-		    if(!handshakeReceived) messageReader.setHandshakeMode();
+		    if(!handshakeReceived) {
+                messageReader.setHandshakeMode();
+            }
 		});;
 	}
 	
@@ -90,6 +101,9 @@ public class PeerConnection implements PeerMessageProducer {
 	public void doWrite() throws MalformedMessageException, IOException {
 		if(messageWriter.isBusy()) {
 			messageWriter.writeToChannel(channel);
+		}
+		if(!messageWriter.isBusy()) {
+		    fulfilNextUploadRequest();
 		}
 	}
 	
@@ -256,6 +270,39 @@ public class PeerConnection implements PeerMessageProducer {
 		        }
 		    }
 		}
+		
+		@Override
+		public void onRequest(int pieceIndex, int offset, int length) {
+		    if(requestsQueue.size() >= MAX_REQUEST_QUEUE_SIZE) {
+		        logger.info("Peer {} tried to queue too many requests. Disconnecting", peer);
+		        kill();
+		    } else if (length > MAX_BLOCK_REQUEST) {
+		        logger.info("Peer {} requested a block too big ({} bytes). Disconnecting", peer, length);
+		        kill();
+		    } else if (!storage.isPresent()) {
+		        logger.info("Received a request from a peer that isn't fully initialized ({}). Disconnecting", peer);
+		        kill();
+		    } else {
+		        try {
+		            Piece piece = storage.get().piece(pieceIndex);
+		            if (!piece.isComplete()) {
+		                logger.info("Peer {} requested a piece that isn't complete yet ({}). Disconnecting", peer, pieceIndex);
+		                kill();
+		            } else if (offset + length > piece.getLength()) {
+		                logger.info("Peer {} requested a block that isn't within the bounds of the piece. Disconnecting", peer);
+		                kill();
+		            } else {
+		                requestsQueue.addFirst(new BlockRequest(pieceIndex, offset, length));
+		                if(!messageWriter.isBusy()) {
+		                    fulfilNextUploadRequest();
+		                }
+		            }
+		        } catch (IndexOutOfBoundsException e) {
+		            logger.info("Peer {} requested a piece that doesn't exist ({}). Disconnecting", peer, pieceIndex);
+		            kill();
+		        }
+		    }
+		}
 	}
 	
 	public Peer getPeer() {
@@ -347,6 +394,19 @@ public class PeerConnection implements PeerMessageProducer {
 	
 	public boolean isDownloading() {
 	    return pieceDownloading.isPresent();
+	}
+	
+	private void fulfilNextUploadRequest() {
+	    if (requestsQueue.isEmpty() || !storage.isPresent()) {
+	        return;
+	    }
+	    BlockRequest block = requestsQueue.removeLast();
+	    try {
+            messageWriter.send(RawMessage.createPiece(block, storage.get().piece(block.pieceIndex)));
+        } catch (IOException e) {
+            logger.error("Error reading piece from disk. Closing connection with peer.", e);
+            kill();
+        }
 	}
 	
 }

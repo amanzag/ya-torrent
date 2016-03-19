@@ -1,9 +1,12 @@
 package es.amanzag.yatorrent.protocol.messages;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import es.amanzag.yatorrent.protocol.BitField;
+import es.amanzag.yatorrent.protocol.BlockRequest;
 import es.amanzag.yatorrent.protocol.TorrentProtocolException;
+import es.amanzag.yatorrent.storage.Piece;
 
 public class RawMessage {
 
@@ -179,6 +182,14 @@ public class RawMessage {
         buffer.putInt(pieceIndex);
         buffer.flip();
         return new RawMessage(Type.HAVE, 5, buffer);
+    }
+    public static RawMessage createPiece(BlockRequest block, Piece piece) throws IOException {
+        ByteBuffer buffer = ByteBuffer.allocate(1 + 9 + block.length);
+        buffer.putInt(9 + block.length);
+        buffer.put(Type.PIECE.getId());
+        piece.read(buffer, block.offset);
+        buffer.flip();
+        return new RawMessage(Type.PIECE, 9 + block.length, buffer);
     }
 
 }
