@@ -28,7 +28,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>es.amanzag.yatorrent.test.ManagerTest</mainClass>
+                            <mainClass>es.amanzag.yatorrent.YaTorrent</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
