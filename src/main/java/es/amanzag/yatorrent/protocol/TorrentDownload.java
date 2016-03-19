@@ -260,9 +260,11 @@ public class TorrentDownload implements PeerConnectionListener {
     
     private void checkCompletionStatus() {
         if (!localBitField.hasBitsUnset()) {
-            logger.info("Torrent {} completed", metadata.getName());
             try {
-                storage.commit();
+                if (!storage.isCommited()) {
+                    logger.info("Torrent {} completed, commiting...", metadata.getName());
+                    storage.commit();
+                }
             } catch (IOException e) {
                 logger.error("Error while writing torrent data", e);
             }

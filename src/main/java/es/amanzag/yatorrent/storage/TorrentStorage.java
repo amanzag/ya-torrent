@@ -175,5 +175,9 @@ public class TorrentStorage implements AutoCloseable {
 	        }
 	    }
 	}
+	
+	public boolean isCommited() {
+	    return Files.exists(Paths.get(ConfigManager.getIncomingDir()).resolve(metadata.getDirectory()));
+	}
 
 }
