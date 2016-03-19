@@ -28,7 +28,7 @@ public class ManagerTest {
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 		    @Override
 		    public void run() {
-		        dm.stop();
+		        dm.destroy();
 		        try {
                     dm.getTorrentThread().join();
                 } catch (InterruptedException e) {

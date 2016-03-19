@@ -102,9 +102,9 @@ public class TorrentDownload implements PeerConnectionListener {
 					}
 					checkCompletionStatus();
 					makeNewConnections();
-					if(stop || destroy) break;
+					if(stop || destroy || state != State.STARTED) break;
 					networkManager.processSocketEvents();
-					if(stop || destroy) break;
+					if(stop || destroy || state != State.STARTED) break;
 			        pieceDownloader.scheduleDownloads();
 			        pieceUploader.scheduleUploads();
 					break;
