@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 
 import es.amanzag.yatorrent.metafile.MalformedMetadataException;
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
-import es.amanzag.yatorrent.protocol.messages.RawMessage;
 import es.amanzag.yatorrent.protocol.tracker.TrackerManager;
 import es.amanzag.yatorrent.storage.TorrentStorage;
 import es.amanzag.yatorrent.util.ConfigManager;
@@ -36,6 +35,7 @@ public class TorrentDownload implements PeerConnectionListener {
 	private TorrentNetworkManager networkManager;
 	private BitField localBitField;
 	private PieceDownloader pieceDownloader;
+	private PieceUploader pieceUploader;
 	private Thread torrentThread;
 	
 	private enum State { INITIALIZED, STARTED, STOPPED, DESTROYED };
@@ -55,6 +55,7 @@ public class TorrentDownload implements PeerConnectionListener {
 		state = State.INITIALIZED;
 		localBitField = storage.asBitField();
 		pieceDownloader = new PieceDownloader(connectedPeers, localBitField, storage);
+		pieceUploader = new PieceUploader(connectedPeers);
 		
 		torrentThread = new Thread(this::run, metadata.getName());
 		torrentThread.start();
@@ -104,7 +105,8 @@ public class TorrentDownload implements PeerConnectionListener {
 					if(stop || destroy) break;
 					networkManager.processSocketEvents();
 					if(stop || destroy) break;
-					findNewActionsToDo();
+			        pieceDownloader.scheduleDownloads();
+			        pieceUploader.scheduleUploads();
 					break;
 				case DESTROYED:
 					break;
@@ -190,10 +192,6 @@ public class TorrentDownload implements PeerConnectionListener {
 				}
 			}
 		}
-	}
-	
-	private void findNewActionsToDo() {
-	    pieceDownloader.scheduleDownloads();
 	}
 	
 	private void onNewPeerInTheNetwork(Peer peer) {
