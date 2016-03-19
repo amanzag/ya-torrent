@@ -172,5 +172,13 @@ public class RawMessage {
         buffer.flip();
         return new RawMessage(Type.REQUEST, 13, buffer);
     }
+    public static RawMessage createHave(int pieceIndex) {
+        ByteBuffer buffer = ByteBuffer.allocate(4+1+4);
+        buffer.putInt(5);
+        buffer.put(Type.HAVE.getId());
+        buffer.putInt(pieceIndex);
+        buffer.flip();
+        return new RawMessage(Type.HAVE, 5, buffer);
+    }
 
 }

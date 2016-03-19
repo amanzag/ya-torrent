@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 
 import es.amanzag.yatorrent.metafile.MalformedMetadataException;
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
+import es.amanzag.yatorrent.protocol.messages.RawMessage;
 import es.amanzag.yatorrent.protocol.tracker.TrackerManager;
 import es.amanzag.yatorrent.storage.TorrentStorage;
 import es.amanzag.yatorrent.util.ConfigManager;
@@ -233,6 +234,10 @@ public class TorrentDownload implements PeerConnectionListener {
                     public void onPiece(int pieceIndex) {
                         localBitField.setPresent(pieceIndex, true);
                         peer.setAmInterested(hasAnInterestingPiece(peer.getBitField()));
+                        
+                        for (PeerConnection peerConnection : connectedPeers) {
+                            peerConnection.sendHave(pieceIndex);
+                        }
                     }
                 });
                 

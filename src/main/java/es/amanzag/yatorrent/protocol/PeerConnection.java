@@ -282,6 +282,11 @@ public class PeerConnection implements PeerMessageProducer {
 	    logger.debug("Bitfield queued to be sent to peer {}", peer);
 	}
 	
+	public void sendHave(int pieceIndex) {
+	    messageWriter.send(RawMessage.createHave(pieceIndex));
+	    logger.debug("Have {} queued to be sent to peer {}", pieceIndex, peer);
+	}
+	
 	public boolean isAmInterested() {
         return amInterested;
     }
