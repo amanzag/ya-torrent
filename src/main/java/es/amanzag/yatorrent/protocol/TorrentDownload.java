@@ -6,11 +6,15 @@ package es.amanzag.yatorrent.protocol;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Vector;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.eventbus.EventBus;
+
+import es.amanzag.yatorrent.events.PeerConnectionsChangedEvent;
 import es.amanzag.yatorrent.metafile.MalformedMetadataException;
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
 import es.amanzag.yatorrent.protocol.tracker.TrackerManager;
@@ -37,6 +41,7 @@ public class TorrentDownload implements PeerConnectionListener {
 	private PieceDownloader pieceDownloader;
 	private PieceUploader pieceUploader;
 	private Thread torrentThread;
+	private Optional<EventBus> eventBus;
 	
 	private enum State { INITIALIZED, STARTED, STOPPED, DESTROYED };
 	
@@ -60,6 +65,10 @@ public class TorrentDownload implements PeerConnectionListener {
 		torrentThread = new Thread(this::run, metadata.getName());
 		torrentThread.start();
 	}
+	
+	public void setEventBus(EventBus eventBus) {
+        this.eventBus = Optional.of(eventBus);
+    }
 	
 	public Thread getTorrentThread() {
         return torrentThread;
@@ -240,6 +249,11 @@ public class TorrentDownload implements PeerConnectionListener {
                 });
                 
                 // TODO if the connection is connecting to us, we need to register the socket with the selector
+                eventBus.ifPresent(bus -> {
+                    PeerConnectionsChangedEvent event = new PeerConnectionsChangedEvent();
+                    event.connectedPeers = connectedPeers.size();
+                    bus.post(event);
+                });
             }
         }
     }

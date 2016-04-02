@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 
+import com.google.common.eventbus.EventBus;
+
 import es.amanzag.yatorrent.metafile.MalformedMetadataException;
 import es.amanzag.yatorrent.metafile.MetafileDownloader;
 import es.amanzag.yatorrent.protocol.IncomingConnectionsManager;
@@ -24,9 +26,13 @@ public class YaTorrent {
             File torrentFile = MetafileDownloader.download(new URL(torrentLocator));
             System.out.println("Torrent file downloaded");
             
+            EventBus eventBus = new EventBus();
+            new YaTorrentConsoleView(eventBus);
+            
             IncomingConnectionsManager incoming = new IncomingConnectionsManager(ConfigManager.getPort());
             TorrentDownload dm = new TorrentDownload(torrentFile);
             incoming.addPeerConnectionListener(dm);
+            dm.setEventBus(eventBus);
             dm.start();
             incoming.start();
             System.out.println("ya-torrent engine started");
