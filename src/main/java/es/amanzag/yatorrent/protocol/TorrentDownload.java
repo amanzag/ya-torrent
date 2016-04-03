@@ -246,14 +246,17 @@ public class TorrentDownload implements PeerConnectionListener {
                             peerConnection.sendHave(pieceIndex);
                         }
                     }
+                    @Override
+                    public void onDisconnect() {
+                        connectedPeers.remove(peer);
+                        remainingPeers.remove(peer);
+                        publishPeerConnectionsChangedEvent();
+                    }
                 });
                 
+                publishPeerConnectionsChangedEvent();
+                
                 // TODO if the connection is connecting to us, we need to register the socket with the selector
-                eventBus.ifPresent(bus -> {
-                    PeerConnectionsChangedEvent event = new PeerConnectionsChangedEvent();
-                    event.connectedPeers = connectedPeers.size();
-                    bus.post(event);
-                });
             }
         }
     }
@@ -283,6 +286,14 @@ public class TorrentDownload implements PeerConnectionListener {
                 logger.error("Error while writing torrent data", e);
             }
         }
+    }
+    
+    private void publishPeerConnectionsChangedEvent() {
+        eventBus.ifPresent(bus -> {
+            PeerConnectionsChangedEvent event = new PeerConnectionsChangedEvent();
+            event.connectedPeers = connectedPeers.size();
+            bus.post(event);
+        });
     }
 
 }
