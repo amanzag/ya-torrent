@@ -41,11 +41,11 @@ public class TorrentDownload implements PeerConnectionListener {
 	private PieceDownloader pieceDownloader;
 	private PieceUploader pieceUploader;
 	private Thread torrentThread;
-	private Optional<EventBus> eventBus;
+	private EventBus eventBus;
 	
 	private enum State { INITIALIZED, STARTED, STOPPED, DESTROYED };
 	
-	public TorrentDownload(File torrentFile) throws IOException, MalformedMetadataException {
+	public TorrentDownload(File torrentFile, EventBus eventBus) throws IOException, MalformedMetadataException {
 		metadata = TorrentMetadata.createFromFile(torrentFile);
 		storage = new TorrentStorage(metadata, torrentFile);
 		tracker = new TrackerManager(metadata);
@@ -59,16 +59,13 @@ public class TorrentDownload implements PeerConnectionListener {
 		destroy = false;
 		state = State.INITIALIZED;
 		localBitField = storage.asBitField();
-		pieceDownloader = new PieceDownloader(connectedPeers, localBitField, storage);
+		this.eventBus = eventBus;
+		pieceDownloader = new PieceDownloader(connectedPeers, localBitField, storage, eventBus);
 		pieceUploader = new PieceUploader(connectedPeers);
 		
 		torrentThread = new Thread(this::run, metadata.getName());
 		torrentThread.start();
 	}
-	
-	public void setEventBus(EventBus eventBus) {
-        this.eventBus = Optional.of(eventBus);
-    }
 	
 	public Thread getTorrentThread() {
         return torrentThread;
@@ -289,11 +286,9 @@ public class TorrentDownload implements PeerConnectionListener {
     }
     
     private void publishPeerConnectionsChangedEvent() {
-        eventBus.ifPresent(bus -> {
-            PeerConnectionsChangedEvent event = new PeerConnectionsChangedEvent();
-            event.connectedPeers = connectedPeers.size();
-            bus.post(event);
-        });
+        PeerConnectionsChangedEvent event = new PeerConnectionsChangedEvent();
+        event.connectedPeers = connectedPeers.size();
+        eventBus.post(event);
     }
 
 }

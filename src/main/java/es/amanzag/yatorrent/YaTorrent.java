@@ -30,9 +30,8 @@ public class YaTorrent {
             new YaTorrentConsoleView(eventBus);
             
             IncomingConnectionsManager incoming = new IncomingConnectionsManager(ConfigManager.getPort());
-            TorrentDownload dm = new TorrentDownload(torrentFile);
+            TorrentDownload dm = new TorrentDownload(torrentFile, eventBus);
             incoming.addPeerConnectionListener(dm);
-            dm.setEventBus(eventBus);
             dm.start();
             incoming.start();
             System.out.println("ya-torrent engine started");

@@ -8,7 +8,9 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.google.common.eventbus.EventBus;
 
+import es.amanzag.yatorrent.events.DownloadingPeersChangedEvent;
 import es.amanzag.yatorrent.storage.Piece;
 import es.amanzag.yatorrent.storage.TorrentStorage;
 
@@ -20,11 +22,13 @@ public class PieceDownloader {
     private BitField localBitField;
     private TorrentStorage storage;
     private BiMap<PeerConnection, Integer> currentDownloads;
+    private EventBus eventBus;
     
-    public PieceDownloader(List<PeerConnection> peers, BitField localBitField, TorrentStorage storage) {
+    public PieceDownloader(List<PeerConnection> peers, BitField localBitField, TorrentStorage storage, EventBus eventBus) {
         this.peers = peers;
         this.localBitField = localBitField;
         this.storage = storage;
+        this.eventBus = eventBus;
         currentDownloads = HashBiMap.create();
     }
     
@@ -42,9 +46,11 @@ public class PieceDownloader {
                         PeerMessageListener listener = new PeerMessageListener() {
                             @Override public void onDisconnect() {
                                 currentDownloads.remove(peerConnection);
+                                publishDownloadingPeersChangedEvent();
                             }
                             @Override public void onPiece(int receivedPieceIndex) {
                                 currentDownloads.remove(peerConnection);
+                                publishDownloadingPeersChangedEvent();
                                 // FIXME
 //                            peerConnection.removeMessageListener(listener);
                             }
@@ -52,6 +58,7 @@ public class PieceDownloader {
                         peerConnection.addMessageListener(listener);
                         peerConnection.download(newDownload);
                         currentDownloads.put(peerConnection, pieceIndex);
+                        publishDownloadingPeersChangedEvent();
                     }
                 });
             });
@@ -65,6 +72,12 @@ public class PieceDownloader {
             }
         }
         return Optional.empty();
+    }
+    
+    private void publishDownloadingPeersChangedEvent() {
+        DownloadingPeersChangedEvent e = new DownloadingPeersChangedEvent();
+        e.downloadingPeers = currentDownloads.size();
+        eventBus.post(e);
     }
 
 }
