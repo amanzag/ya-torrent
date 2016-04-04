@@ -5,6 +5,7 @@ package es.amanzag.yatorrent.protocol;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
 
@@ -137,7 +138,7 @@ public class TorrentDownload implements PeerConnectionListener {
 	}
 	
 	protected void doStop() {
-		for (PeerConnection connectedPeer : connectedPeers) {
+		for (PeerConnection connectedPeer : new ArrayList<>(connectedPeers)) {
 			connectedPeer.kill();
 		}
 		try {
