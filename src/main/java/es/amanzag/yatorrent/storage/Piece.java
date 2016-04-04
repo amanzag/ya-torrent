@@ -6,6 +6,8 @@ package es.amanzag.yatorrent.storage;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.LinkedList;
+import java.util.List;
 
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
 
@@ -20,6 +22,7 @@ public class Piece {
 	private byte[] checksum;
 	private FileChannel dataChannel;
 	private TorrentMetadata metadata;
+	private List<PieceListener> listeners;
 	
 	public Piece(int index, int length, byte[] checksum, FileChannel dataChannel, TorrentMetadata metadata) {
 		this.index = index;
@@ -29,6 +32,7 @@ public class Piece {
 		this.dataChannel = dataChannel;
 		this.metadata = metadata;
 		locked = false;
+		listeners = new LinkedList<>();
 	}
 
 	public int getCompletion() {
@@ -37,6 +41,9 @@ public class Piece {
 
 	void markCompleted(int nBytes) {
 		this.completion += nBytes;
+		for (PieceListener l : listeners) {
+            l.onCompletionChanged(nBytes, completion, length);
+        }
 	}
 
 	public int getLength() {
@@ -99,6 +106,11 @@ public class Piece {
 	    }
 	    dataChannel.position(index * metadata.getPieceLength() + offset);
 	    dataChannel.read(buffer);
+	}
+	
+	public void addListener(PieceListener listener) {
+	    listeners.add(listener);
+	    
 	}
 	
 }

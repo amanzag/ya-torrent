@@ -20,6 +20,9 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.eventbus.EventBus;
+
+import es.amanzag.yatorrent.events.CompletionChangedEvent;
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
 import es.amanzag.yatorrent.metafile.TorrentMetadata.ContainedFile;
 import es.amanzag.yatorrent.protocol.BitField;
@@ -41,11 +44,14 @@ public class TorrentStorage implements AutoCloseable {
 	private FileChannel dataChannel, stateChannel;
 	private TorrentMetadata metadata;
 	private List<Piece> pieces;
+	private int completedBytes;
+	private EventBus eventBus;
 	
-	public TorrentStorage(TorrentMetadata metadata, File tempTorrent) throws IOException {
+	public TorrentStorage(TorrentMetadata metadata, File tempTorrent, EventBus eventBus) throws IOException {
 		tempDir = new File(ConfigManager.getTempDir()+"/"+metadata.getName());
 		
 		this.torrentFile = tempTorrent;
+		this.eventBus = eventBus;
 		dataFile = new File(tempDir, DATA_FILENAME);
 		stateFile = new File(tempDir, STATE_FILENAME);
 		this.metadata = metadata;
@@ -117,8 +123,24 @@ public class TorrentStorage implements AutoCloseable {
 		pieces.add(tmpPiece);
 		tmpPiece.markCompleted(states.getInt());	
 		logger.debug("Piece {} is complete: {}", tmpPiece.getIndex(), tmpPiece.isComplete());
+		
+		completedBytes = 0;
+		for (Piece p : pieces) {
+		    completedBytes += p.getCompletion();
+            p.addListener((newBytes, completedBytes, totalBytes) -> {
+                this.completedBytes += newBytes;
+                publishCompletionChangedEvent();
+            });
+        }
+		publishCompletionChangedEvent();
 	}
 	
+	private void publishCompletionChangedEvent() {
+        CompletionChangedEvent e = new CompletionChangedEvent();
+        e.completedBytes = completedBytes;
+        e.totalBytes = metadata.getTotalLength();
+        eventBus.post(e);
+	}
 	
 	public void forceSave() throws IOException {
 		dataChannel.force(false);

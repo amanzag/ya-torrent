@@ -6,6 +6,8 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 
+import com.google.common.eventbus.EventBus;
+
 import es.amanzag.yatorrent.metafile.MalformedMetadataException;
 import es.amanzag.yatorrent.metafile.MetafileDownloader;
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
@@ -27,7 +29,7 @@ public class StorageTest {
 		
 		// more initialization code
 		try {
-			storage = new TorrentStorage(torrent, torrentFile);
+			storage = new TorrentStorage(torrent, torrentFile, new EventBus());
 		} catch (IOException e1) {
 			System.err.println("Error creating temp directory for torrent "+torrent.getName()+": "+e1.getMessage());
 		}

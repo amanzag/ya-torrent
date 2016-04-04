@@ -6,7 +6,6 @@ package es.amanzag.yatorrent.protocol;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.Vector;
 
 import org.slf4j.Logger;
@@ -47,7 +46,7 @@ public class TorrentDownload implements PeerConnectionListener {
 	
 	public TorrentDownload(File torrentFile, EventBus eventBus) throws IOException, MalformedMetadataException {
 		metadata = TorrentMetadata.createFromFile(torrentFile);
-		storage = new TorrentStorage(metadata, torrentFile);
+		storage = new TorrentStorage(metadata, torrentFile, eventBus);
 		tracker = new TrackerManager(metadata);
 		remainingPeers = new Vector<Peer>();
 		connectedPeers = new Vector<PeerConnection>();
