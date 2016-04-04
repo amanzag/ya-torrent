@@ -49,6 +49,9 @@ public class YaTorrentConsoleView {
     }
     
     private void refresh() {
+        if (!active) {
+            return;
+        }
         System.out.printf("Downloaded %s/%s (%.2f%%) \t Peers (%d/%d)\r", 
                 Util.humanReadableByteCount(downloadedBytes, false),
                 Util.humanReadableByteCount(totalBytes, false),
