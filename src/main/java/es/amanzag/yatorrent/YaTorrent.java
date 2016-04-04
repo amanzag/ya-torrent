@@ -27,21 +27,24 @@ public class YaTorrent {
             System.out.println("Torrent file downloaded");
             
             EventBus eventBus = new EventBus();
-            new YaTorrentConsoleView(eventBus);
+            YaTorrentConsoleView view = new YaTorrentConsoleView(eventBus);
             
+            System.out.println("Starting ya-torrent engine");
             IncomingConnectionsManager incoming = new IncomingConnectionsManager(ConfigManager.getPort());
             TorrentDownload dm = new TorrentDownload(torrentFile, eventBus);
             incoming.addPeerConnectionListener(dm);
             dm.start();
             incoming.start();
-            System.out.println("ya-torrent engine started");
+            view.setActive(true);
+            
             Runtime.getRuntime().addShutdownHook(new Thread() {
                 @Override
                 public void run() {
                     try {
-                        System.out.println("Stopping torrent engine");
+                        view.setActive(false);
                         dm.destroy();
                         dm.getTorrentThread().join();
+                        System.out.println();
                         System.out.println("Bye!");
                     } catch (InterruptedException e) {
                         e.printStackTrace();

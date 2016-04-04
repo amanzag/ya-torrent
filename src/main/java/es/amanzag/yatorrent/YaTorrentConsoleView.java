@@ -14,10 +14,19 @@ public class YaTorrentConsoleView {
     private int downloadingPeers = 0;
     private long downloadedBytes = 0;
     private long totalBytes = 0;
+    public boolean active = false;
     
     public YaTorrentConsoleView(EventBus eventBus) {
         super();
         eventBus.register(this);
+    }
+    
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+    
+    public boolean isActive() {
+        return active;
     }
 
     @Subscribe
@@ -41,8 +50,8 @@ public class YaTorrentConsoleView {
     
     private void refresh() {
         System.out.printf("Downloaded %s/%s (%.2f%%) \t Peers (%d/%d)\r", 
-                Util.humanReadableByteCount(downloadedBytes, true),
-                Util.humanReadableByteCount(totalBytes, true),
+                Util.humanReadableByteCount(downloadedBytes, false),
+                Util.humanReadableByteCount(totalBytes, false),
                 (float)downloadedBytes * 100 / totalBytes,
                 downloadingPeers, 
                 connectedPeers);
