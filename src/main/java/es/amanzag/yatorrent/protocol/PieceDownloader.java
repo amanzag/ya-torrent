@@ -1,6 +1,5 @@
 package es.amanzag.yatorrent.protocol;
 
-import java.util.List;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -18,14 +17,14 @@ public class PieceDownloader {
     
     private final static Logger logger = LoggerFactory.getLogger(PieceDownloader.class);
     
-    private List<PeerConnection> peers;
+    private PeerRepository peerRepository;
     private BitField localBitField;
     private TorrentStorage storage;
     private BiMap<PeerConnection, Integer> currentDownloads;
     private EventBus eventBus;
     
-    public PieceDownloader(List<PeerConnection> peers, BitField localBitField, TorrentStorage storage, EventBus eventBus) {
-        this.peers = peers;
+    public PieceDownloader(PeerRepository peerRepository, BitField localBitField, TorrentStorage storage, EventBus eventBus) {
+        this.peerRepository = peerRepository;
         this.localBitField = localBitField;
         this.storage = storage;
         this.eventBus = eventBus;
@@ -34,7 +33,7 @@ public class PieceDownloader {
     
     public void scheduleDownloads() {
         BitField piecesNeeded = localBitField.reverse();
-        peers.stream()
+        peerRepository.getConnectedPeers().stream()
             .filter(peer -> !peer.isPeerChoking())
             .filter(peer -> !currentDownloads.containsKey(peer))
             .forEach(peerConnection -> {

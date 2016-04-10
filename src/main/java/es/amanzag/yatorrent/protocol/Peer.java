@@ -3,7 +3,6 @@
  */
 package es.amanzag.yatorrent.protocol;
 
-import java.util.Arrays;
 import java.util.Optional;
 
 import es.amanzag.yatorrent.util.Util;
