@@ -83,6 +83,9 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
                             logger.debug("Can not connect to peer "+peer+". "+e.getMessage());
                             key.attach(null);
                             key.cancel();
+                            for (PeerConnectionListener peerConnectionListener : listeners) {
+                                peerConnectionListener.onConnectionFailed(peer);
+                            }
                         } catch (Exception e) {
                             logger.error("Error establishing connection to "+peer, e);
                             key.attach(null);
@@ -98,9 +101,6 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
                             }
                         } catch (Exception e) {
                             logger.debug("Error sending message to "+conn.getPeer()+". Closing connection: "+e.getMessage());
-                            for (PeerConnectionListener listener : listeners) {
-                                listener.onConnectionLost(conn);
-                            }
                             conn.kill();
                         }
                     } 
@@ -111,17 +111,11 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
                                 logger.debug("Socket closed. Connection with "+conn.getPeer()+" dropped");
                                 conn.kill();
                                 key.cancel();
-                                for (PeerConnectionListener listener : listeners) {
-                                    listener.onConnectionLost(conn);
-                                }
                             } else {
                                 conn.doRead();
                             }
                         } catch (Exception e) {
                             logger.error("Error reading from socket ("+e.getMessage()+"). Closing connection with "+conn.getPeer(), e);
-                            for (PeerConnectionListener listener : listeners) {
-                                listener.onConnectionLost(conn);
-                            }
                             conn.kill();
                         }
                     }

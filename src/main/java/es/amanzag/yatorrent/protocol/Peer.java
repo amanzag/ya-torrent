@@ -3,7 +3,13 @@
  */
 package es.amanzag.yatorrent.protocol;
 
+import static java.util.Objects.requireNonNull;
+
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
+
+import com.google.common.base.Objects;
 
 import es.amanzag.yatorrent.util.Util;
 
@@ -12,25 +18,36 @@ import es.amanzag.yatorrent.util.Util;
  *
  */
 public class Peer {
+    
+    private final static Duration RECONNECT_INTERVAL = Duration.ofSeconds(60);
 	
 	private String address;
 	private int port;
 	private byte[] id;
+	private int score;
+	private Instant lastDisconnection;
 	
 	/** Constructs a Peer without the info_hash. It must be read from the handshake
 	 * or set by the method setInfoHash
 	 */
 	public Peer(String address, int port) {
-		if(address == null) throw new NullPointerException();
+	    requireNonNull(address);
 		this.address = address;
 		this.port = port;
 		this.id = null;
+		score = 0;
+		lastDisconnection = Instant.now().minus(RECONNECT_INTERVAL); // to make sure that the first time we try to connect
 	}
 	
 	@Override
 	public boolean equals(Object obj) {
 		Peer comp = (Peer) obj;
 		return address.equals(comp.address) && port == comp.port ;
+	}
+	
+	@Override
+	public int hashCode() {
+	    return Objects.hashCode(address, port);
 	}
 	
 	@Override
@@ -54,5 +71,21 @@ public class Peer {
 	public void setId(byte[] id) {
 		this.id = id;
 	}	
+	
+	public void recordConnection() {
+	    score++;
+	}
 
+	public void recordDisconnection() {
+	    score--;
+	    lastDisconnection = Instant.now();
+	}
+	
+	public boolean shouldForget() {
+	    return score < -2;
+	}
+	
+	public boolean shouldTryConnection() {
+	    return Instant.now().minus(RECONNECT_INTERVAL).compareTo(lastDisconnection) > 0;
+	}
 }

@@ -27,7 +27,7 @@ public class ConfigManager {
 	}
 
 	public static int getMaxConnections() {
-		return 3;
+		return 30;
 	}
 	
 }

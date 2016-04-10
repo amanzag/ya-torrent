@@ -10,7 +10,7 @@ package es.amanzag.yatorrent.protocol;
 public interface PeerConnectionListener {
 	
 	void onNewConnection(PeerConnection peer);
-	void onConnectionLost(PeerConnection peer);
+	void onConnectionFailed(Peer peer);
 	byte[] getInfoHash();
 
 }

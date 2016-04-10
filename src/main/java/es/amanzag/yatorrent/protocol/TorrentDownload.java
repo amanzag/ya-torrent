@@ -181,18 +181,23 @@ public class TorrentDownload implements PeerConnectionListener {
 	
 	private void makeNewConnections() {
 		synchronized(peerRepository) {
-			// FIXME cuando intentamos conectar a un peer se queda en el limbo, ni connected ni remaining, por eso falla la comprobacion de maximo
-			while(peerRepository.connectedPeersCount() < ConfigManager.getMaxConnections() && peerRepository.disconnectedPeersCount()>0) {
-				Peer peer = null;
-				peer = peerRepository.getDisconnectedPeers().iterator().next();
-				logger.debug("Trying to connect to peer "+peer);
-				peerRepository.remove(peer);
-				try {
-				    networkManager.connect(peer);
-				} catch (IOException e) {
-					logger.debug("Could not connect to peer "+peer);
-				}
-			}
+		    int connectionsToMake = Math.max(
+		            ConfigManager.getMaxConnections() - peerRepository.connectedPeersCount(),
+		            0);
+	        peerRepository.getDisconnectedPeers().stream()
+	            .filter(peer -> peer.shouldTryConnection())
+	            .limit(connectionsToMake)
+	            .forEach(peer -> {
+	                logger.debug("Trying to connect to peer "+peer);
+	                try {
+	                    networkManager.connect(peer);
+	                    // FIXME cuando intentamos conectar a un peer se queda en el limbo, ni connected ni remaining, por eso falla la comprobacion de maximo
+	                    peerRepository.remove(peer);
+	                } catch (IOException e) {
+	                    logger.debug("Could not connect to peer "+peer);
+	                }
+	            });
+		    
 		}
 	}
 	
@@ -204,29 +209,31 @@ public class TorrentDownload implements PeerConnectionListener {
 	}
 		
     @Override
-    public void onNewConnection(PeerConnection peer) {
+    public void onNewConnection(PeerConnection peerConnection) {
         synchronized (peerRepository) {
-            peerRepository.add(peer);
-            logger.debug("New peer for download "+metadata.getName()+", "+peer.getPeer());
-            peer.sendHandshake();
+            peerRepository.add(peerConnection);
+            logger.debug("New peer for download "+metadata.getName()+", "+peerConnection.getPeer());
+            peerConnection.sendHandshake();
             
-            peer.addMessageListener(new PeerMessageListener() {
+            peerConnection.addMessageListener(new PeerMessageListener() {
                 @Override
                 public void onHandshake(byte[] infoHash, byte[] peerId) {
-                    peer.sendBitField(localBitField);
+                    // we don't want to consider the peer connectable unless they've sent at least the handshake
+                    peerConnection.getPeer().recordConnection();
+                    peerConnection.sendBitField(localBitField);
                 }
                 @Override
                 public void onBitfield(BitField bitField) {
-                    peer.setAmInterested(hasAnInterestingPiece(bitField));
+                    peerConnection.setAmInterested(hasAnInterestingPiece(bitField));
                 }
                 @Override
                 public void onHave(int pieceIndex) {
-                    peer.setAmInterested(hasAnInterestingPiece(peer.getBitField()));
+                    peerConnection.setAmInterested(hasAnInterestingPiece(peerConnection.getBitField()));
                 }
                 @Override
                 public void onPiece(int pieceIndex) {
                     localBitField.setPresent(pieceIndex, true);
-                    peer.setAmInterested(hasAnInterestingPiece(peer.getBitField()));
+                    peerConnection.setAmInterested(hasAnInterestingPiece(peerConnection.getBitField()));
                     
                     for (PeerConnection peerConnection : peerRepository.getConnectedPeers()) {
                         peerConnection.sendHave(pieceIndex);
@@ -234,7 +241,12 @@ public class TorrentDownload implements PeerConnectionListener {
                 }
                 @Override
                 public void onDisconnect() {
-                    peerRepository.remove(peer);
+                    peerRepository.remove(peerConnection);
+                    Peer peer = peerConnection.getPeer();
+                    peer.recordDisconnection();
+                    if (!peer.shouldForget()) {
+                        peerRepository.add(peer);
+                    }
                     publishPeerConnectionsChangedEvent();
                 }
             });
@@ -246,8 +258,12 @@ public class TorrentDownload implements PeerConnectionListener {
     }
 
     @Override
-    public void onConnectionLost(PeerConnection peer) {
-        peerRepository.remove(peer);
+    public void onConnectionFailed(Peer peer) {
+        peer.recordDisconnection();
+        if (!peer.shouldForget()) {
+            peerRepository.add(peer);
+        }
+        
     }
     
     @Override
