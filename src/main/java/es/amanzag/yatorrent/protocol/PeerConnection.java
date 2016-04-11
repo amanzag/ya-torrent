@@ -32,6 +32,7 @@ import es.amanzag.yatorrent.util.ConfigManager;
  */
 public class PeerConnection implements PeerMessageProducer {
 	
+    private final static int MAX_BLOCK_QUEUE_SIZE = 5;
     private final static int MAX_BLOCK_REQUEST = 16 * 1024;
     private final static int BLOCK_SIZE = MAX_BLOCK_REQUEST;
 	private static Logger logger = LoggerFactory.getLogger(PeerConnection.class);
@@ -45,7 +46,7 @@ public class PeerConnection implements PeerMessageProducer {
 	private MessageWriter messageWriter;
 	private Optional<TorrentMetadata> torrentMetadata;
 	private Optional<BitField> bitField;
-	private Optional<Piece> pieceDownloading;
+	private Optional<DownloadStatus> downloadStatus;
 	private Optional<TorrentStorage> storage;
 	
 	private LinkedList<BlockRequest> requestsQueue;
@@ -68,7 +69,7 @@ public class PeerConnection implements PeerMessageProducer {
 		messageReader.setHandshakeMode();
 		torrentMetadata = Optional.empty();
 		bitField = Optional.empty();
-		pieceDownloading = Optional.empty();
+		downloadStatus = Optional.empty();
 		requestsQueue = new LinkedList<>();
 	}
 	
@@ -166,8 +167,8 @@ public class PeerConnection implements PeerMessageProducer {
 			logger.debug("Error when trying to close connecion with "+peer+". "+e.getMessage());
 		}
 		if(isDownloading()) {
-		    pieceDownloading.get().unlock();
-		    pieceDownloading = Optional.empty();
+		    downloadStatus.get().piece.unlock();
+		    downloadStatus = Optional.empty();
 		}
 		notifyMessageListeners(listener -> listener.onDisconnect());
 		listeners.clear();
@@ -240,11 +241,11 @@ public class PeerConnection implements PeerMessageProducer {
 		
 		@Override
 		public void onBlock(int index, int offset, ByteBuffer data) {
-		    if (!pieceDownloading.isPresent()) {
+		    if (!downloadStatus.isPresent()) {
 		        logger.error("Got a block that wasn't expecting. Closing connection with peer {}", peer);
 		        kill();
 		    }
-		    Piece piece = pieceDownloading.get();
+		    Piece piece = downloadStatus.get().piece;
 		    if(piece.getIndex() != index) {
 		        logger.error("Got block of a different piece than expected");
 		        kill();
@@ -259,9 +260,12 @@ public class PeerConnection implements PeerMessageProducer {
 		            piece.write(data);
 		            if(piece.isComplete()) {
 		                logger.debug("Finished downloading piece {}", index);
-		                pieceDownloading = Optional.empty();
+		                downloadStatus = Optional.empty();
 		                piece.unlock();
 		                notifyMessageListeners(listener -> listener.onPiece(piece.getIndex()));
+		            } else {
+		                downloadStatus.ifPresent(status -> status.queueSize--);
+		                scheduleMoreBlockRequests();
 		            }
 		        } catch (IOException e) {
 		            logger.warn("Error writing to file", e);
@@ -384,16 +388,26 @@ public class PeerConnection implements PeerMessageProducer {
 	        throw new IllegalStateException("Already downloading a piece, can't start downloading another one");
 	    }
 	    piece.lock();
-	    pieceDownloading = Optional.of(piece);
-	    int tempCompletion = piece.getCompletion();
-        while(tempCompletion < piece.getLength()) {
-            requestBlock(piece.getIndex(), tempCompletion, Math.min(BLOCK_SIZE, piece.getLength()-tempCompletion));
-            tempCompletion += BLOCK_SIZE;
+	    downloadStatus = Optional.of(new DownloadStatus(piece, piece.getCompletion()-1));
+	    scheduleMoreBlockRequests();
+	}
+	
+	private void scheduleMoreBlockRequests() {
+        DownloadStatus status = downloadStatus.get();
+        while(status.queueSize < MAX_BLOCK_QUEUE_SIZE && 
+                status.lastRequestedByte < status.piece.getLength()-1) {
+            requestBlock(
+                    status.piece.getIndex(), 
+                    status.lastRequestedByte+1, 
+                    Math.min(BLOCK_SIZE, status.piece.getLength() - status.lastRequestedByte+1)
+                    );
+            status.lastRequestedByte += BLOCK_SIZE;
+            status.queueSize++;
         }
 	}
 	
 	public boolean isDownloading() {
-	    return pieceDownloading.isPresent();
+	    return downloadStatus.isPresent();
 	}
 	
 	private void fulfilNextUploadRequest() {
@@ -406,6 +420,17 @@ public class PeerConnection implements PeerMessageProducer {
         } catch (IOException e) {
             logger.error("Error reading piece from disk. Closing connection with peer.", e);
             kill();
+        }
+	}
+	
+	private final static class DownloadStatus {
+	    final Piece piece;
+	    int queueSize;
+	    int lastRequestedByte;
+	    public DownloadStatus(Piece piece, int lastRequestedByte) {
+            this.piece = piece;
+            this.lastRequestedByte = lastRequestedByte;
+            queueSize = 0;
         }
 	}
 	
