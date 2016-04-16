@@ -396,7 +396,7 @@ public class PeerConnection implements PeerMessageProducer {
             requestBlock(
                     status.piece.getIndex(), 
                     status.lastRequestedByte+1, 
-                    Math.min(BLOCK_SIZE, status.piece.getLength() - status.lastRequestedByte+1)
+                    Math.min(BLOCK_SIZE, status.piece.getLength() - (status.lastRequestedByte+1))
                     );
             status.lastRequestedByte += BLOCK_SIZE;
             status.queueSize++;
