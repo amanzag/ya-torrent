@@ -232,7 +232,10 @@ public class PeerConnection implements PeerMessageProducer {
 		
 		@Override
 		public void onBitfield(BitField receivedBitField) {
-		    logger.debug("Bitfield received from peer {}", peer);
+		    if (logger.isDebugEnabled()) {
+		        String type = receivedBitField.hasBitsUnset() ? "LEECHER" : "SEEDER";
+		        logger.debug("Bitfield received from peer {} ({})", peer, type);
+		    }
 		    if(!handshakeReceived) {
 		        throw new TorrentProtocolException("no handshake received before bitfield");
 		    }
