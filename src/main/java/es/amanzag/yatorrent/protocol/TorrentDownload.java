@@ -16,6 +16,7 @@ import es.amanzag.yatorrent.events.PeerConnectionsChangedEvent;
 import es.amanzag.yatorrent.metafile.MalformedMetadataException;
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
 import es.amanzag.yatorrent.protocol.tracker.TrackerManager;
+import es.amanzag.yatorrent.storage.Piece;
 import es.amanzag.yatorrent.storage.TorrentStorage;
 import es.amanzag.yatorrent.util.ConfigManager;
 

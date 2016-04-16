@@ -6,6 +6,10 @@ package es.amanzag.yatorrent.storage;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileChannel.MapMode;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -44,7 +48,7 @@ public class Piece {
 		listeners = new LinkedList<>();
 		outOfOrderBlocks = new TreeSet<>();
 	}
-
+	
 	public int getCompletion() {
 		return completion;
 	}
@@ -133,7 +137,10 @@ public class Piece {
 	    } else if (offset < getCompletion()) {
 	        throw new TorrentStorageException("Tried to write data that was already written");
 	    } else {
-	        outOfOrderBlocks.add(new Block(offset, data));
+	        ByteBuffer clone = ByteBuffer.allocate(data.remaining());
+	        clone.put(data);
+	        clone.flip();
+	        outOfOrderBlocks.add(new Block(offset, clone));
 	    }
 	}
 	
@@ -143,6 +150,17 @@ public class Piece {
 	    }
 	    dataChannel.position(index * metadata.getPieceLength() + offset);
 	    dataChannel.read(buffer);
+	}
+	
+	public boolean validateData() throws IOException {
+	    try {
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            md.update(dataChannel.map(MapMode.READ_ONLY, index * metadata.getPieceLength(), length));
+            byte[] calculatedChecksum = md.digest();
+            return Arrays.equals(checksum, calculatedChecksum);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
 	}
 	
 	public void addListener(PieceListener listener) {
