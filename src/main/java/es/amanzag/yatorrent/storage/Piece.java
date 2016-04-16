@@ -8,6 +8,12 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.SortedSet;
+import java.util.TreeSet;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
 
@@ -16,6 +22,8 @@ import es.amanzag.yatorrent.metafile.TorrentMetadata;
  *
  */
 public class Piece {
+
+    private final static Logger logger = LoggerFactory.getLogger(Piece.class);
 	
 	private int index, length, completion;
 	private boolean locked;
@@ -23,6 +31,7 @@ public class Piece {
 	private FileChannel dataChannel;
 	private TorrentMetadata metadata;
 	private List<PieceListener> listeners;
+	private SortedSet<Block> outOfOrderBlocks;
 	
 	public Piece(int index, int length, byte[] checksum, FileChannel dataChannel, TorrentMetadata metadata) {
 		this.index = index;
@@ -33,6 +42,7 @@ public class Piece {
 		this.metadata = metadata;
 		locked = false;
 		listeners = new LinkedList<>();
+		outOfOrderBlocks = new TreeSet<>();
 	}
 
 	public int getCompletion() {
@@ -100,6 +110,33 @@ public class Piece {
         markCompleted(written);
 	}
 	
+	public void write(int offset, ByteBuffer data) throws IOException {
+	    if (offset == getCompletion()) {
+	        write(data);
+	        try {
+	            Block first = outOfOrderBlocks.first();
+	            while (true) {
+	                if(first.offset == getCompletion()) {
+	                    write(first.data);
+	                    outOfOrderBlocks.remove(first);
+	                    first = outOfOrderBlocks.first();
+	                } else if(first.offset < getCompletion()) {
+	                    logger.warn("Out of order block is behind current completion. Discarding block");
+	                    outOfOrderBlocks.remove(first);
+	                } else {
+	                    break;
+	                }
+	            }
+	        } catch (NoSuchElementException e) {
+	            // no out of order blocks, carry on
+	        }
+	    } else if (offset < getCompletion()) {
+	        throw new TorrentStorageException("Tried to write data that was already written");
+	    } else {
+	        outOfOrderBlocks.add(new Block(offset, data));
+	    }
+	}
+	
 	public void read(ByteBuffer buffer, int offset) throws IOException {
 	    if(!isComplete()) {
 	        throw new IllegalStateException("Piece "+index+"is not complete so is not readable");
@@ -111,6 +148,21 @@ public class Piece {
 	public void addListener(PieceListener listener) {
 	    listeners.add(listener);
 	    
+	}
+	
+	private static class Block implements Comparable<Block> {
+	    int offset;
+	    ByteBuffer data;
+
+	    public Block(int offset, ByteBuffer data) {
+            this.offset = offset;
+            this.data = data;
+        }
+	    
+        @Override
+        public int compareTo(Block o) {
+            return new Integer(offset).compareTo(o.offset);
+        }
 	}
 	
 }

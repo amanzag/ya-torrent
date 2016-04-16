@@ -249,15 +249,11 @@ public class PeerConnection implements PeerMessageProducer {
 		    if(piece.getIndex() != index) {
 		        logger.error("Got block of a different piece than expected");
 		        kill();
-		    } else if(piece.getCompletion() != offset) {
-		        logger.error("Piece {}. Got block starting in {} but was expecting {}",
-		                index, offset, piece.getCompletion());
-		        kill();
 		    } else {
 		        logger.debug("Received block [index={}, offset={}, length={}] from peer {}",
 		                index, offset, data.remaining(), peer);
 		        try {
-		            piece.write(data);
+		            piece.write(offset, data);
 		            if(piece.isComplete()) {
 		                logger.debug("Finished downloading piece {}", index);
 		                downloadStatus = Optional.empty();
@@ -271,6 +267,7 @@ public class PeerConnection implements PeerMessageProducer {
 		            logger.warn("Error writing to file", e);
 		        } catch (TorrentStorageException e) {
 		            logger.error("Error storing piece", e);
+		            kill();
 		        }
 		    }
 		}
