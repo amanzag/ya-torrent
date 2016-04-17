@@ -48,6 +48,7 @@ public class PeerConnection implements PeerMessageProducer {
 	private Optional<BitField> bitField;
 	private Optional<DownloadStatus> downloadStatus;
 	private Optional<TorrentStorage> storage;
+	private boolean seeder;
 	
 	private LinkedList<BlockRequest> requestsQueue;
 	private final static int MAX_REQUEST_QUEUE_SIZE = 10;
@@ -71,6 +72,7 @@ public class PeerConnection implements PeerMessageProducer {
 		bitField = Optional.empty();
 		downloadStatus = Optional.empty();
 		requestsQueue = new LinkedList<>();
+		seeder = false;
 	}
 	
 	public PeerConnection(Peer peer, SocketChannel channel, TorrentStorage storage, TorrentMetadata torrentMetadata) {
@@ -160,11 +162,11 @@ public class PeerConnection implements PeerMessageProducer {
 	}
 	
 	public void kill() {
-	    logger.debug("Closing peer {}", peer);
+	    logger.debug("Closing peer {}", this);
 		try {
 			channel.close();
 		} catch (IOException e) {
-			logger.debug("Error when trying to close connecion with "+peer+". "+e.getMessage());
+			logger.debug("Error when trying to close connecion with "+this+". "+e.getMessage());
 		}
 		if(isDownloading()) {
 		    downloadStatus.get().piece.unlock();
@@ -194,30 +196,32 @@ public class PeerConnection implements PeerMessageProducer {
 		@Override
 		public void onChoke() {
 			peerChoking = true;
-			logger.debug("Peer "+peer+" has choked");
+			logger.debug("Peer "+PeerConnection.this+" has choked");
 		}
 		
 		@Override
 		public void onUnchoke() {
 			peerChoking = false;
-			logger.debug("Peer "+peer+" has unchoked");
+			logger.debug("Peer "+PeerConnection.this+" has unchoked");
 		}
 		
 		@Override
 		public void onInterested() {
 			peerInterested = true;
-			logger.debug("Peer "+peer+" is interested");
+			logger.debug("Peer "+PeerConnection.this+" is interested");
 		}
 		
 		@Override
 		public void onNotInterested() {
 			peerInterested = false;
-			logger.debug("Peer "+peer+" is no longer interested");
+			logger.debug("Peer "+PeerConnection.this+" is no longer interested");
 		}
 		
 		@Override
 		public void onHave(int chunkIndex) {
 		    bitField.orElseThrow(() -> new IllegalStateException()).setPresent(chunkIndex, true);
+		    seeder = !bitField.get().hasBitsUnset();
+		    logger.debug("Have {} received from peer {}", chunkIndex, PeerConnection.this);
 		}
 		
 		@Override
@@ -227,25 +231,26 @@ public class PeerConnection implements PeerMessageProducer {
 		    };
 			handshakeReceived = true;
 			peer.setId(peerId);
-			logger.debug("Handshake received from peer "+peer);
+			logger.debug("Handshake received from peer {}", PeerConnection.this);
 		}
 		
 		@Override
 		public void onBitfield(BitField receivedBitField) {
 		    if (logger.isDebugEnabled()) {
 		        String type = receivedBitField.hasBitsUnset() ? "LEECHER" : "SEEDER";
-		        logger.debug("Bitfield received from peer {} ({})", peer, type);
+		        logger.debug("Bitfield received from peer {} ({})", PeerConnection.this, type);
 		    }
 		    if(!handshakeReceived) {
 		        throw new TorrentProtocolException("no handshake received before bitfield");
 		    }
 		    bitField.get().add(receivedBitField);
+		    seeder = !bitField.get().hasBitsUnset();
 		}
 		
 		@Override
 		public void onBlock(int index, int offset, ByteBuffer data) {
 		    if (!downloadStatus.isPresent()) {
-		        logger.error("Got a block that wasn't expecting. Closing connection with peer {}", peer);
+		        logger.error("Got a block that wasn't expecting. Closing connection with peer {}", PeerConnection.this);
 		        kill();
 		    }
 		    Piece piece = downloadStatus.get().piece;
@@ -254,7 +259,7 @@ public class PeerConnection implements PeerMessageProducer {
 		        kill();
 		    } else {
 		        logger.debug("Received block [index={}, offset={}, length={}] from peer {}",
-		                index, offset, data.remaining(), peer);
+		                index, offset, data.remaining(), PeerConnection.this);
 		        try {
 		            piece.write(offset, data);
 		            if(piece.isComplete()) {
@@ -278,22 +283,22 @@ public class PeerConnection implements PeerMessageProducer {
 		@Override
 		public void onRequest(int pieceIndex, int offset, int length) {
 		    if(requestsQueue.size() >= MAX_REQUEST_QUEUE_SIZE) {
-		        logger.info("Peer {} tried to queue too many requests. Disconnecting", peer);
+		        logger.info("Peer {} tried to queue too many requests. Disconnecting", PeerConnection.this);
 		        kill();
 		    } else if (length > MAX_BLOCK_REQUEST) {
-		        logger.info("Peer {} requested a block too big ({} bytes). Disconnecting", peer, length);
+		        logger.info("Peer {} requested a block too big ({} bytes). Disconnecting", PeerConnection.this, length);
 		        kill();
 		    } else if (!storage.isPresent()) {
-		        logger.info("Received a request from a peer that isn't fully initialized ({}). Disconnecting", peer);
+		        logger.info("Received a request from a peer that isn't fully initialized ({}). Disconnecting", PeerConnection.this);
 		        kill();
 		    } else {
 		        try {
 		            Piece piece = storage.get().piece(pieceIndex);
 		            if (!piece.isComplete()) {
-		                logger.info("Peer {} requested a piece that isn't complete yet ({}). Disconnecting", peer, pieceIndex);
+		                logger.info("Peer {} requested a piece that isn't complete yet ({}). Disconnecting", PeerConnection.this, pieceIndex);
 		                kill();
 		            } else if (offset + length > piece.getLength()) {
-		                logger.info("Peer {} requested a block that isn't within the bounds of the piece. Disconnecting", peer);
+		                logger.info("Peer {} requested a block that isn't within the bounds of the piece. Disconnecting", PeerConnection.this);
 		                kill();
 		            } else {
 		                requestsQueue.addFirst(new BlockRequest(pieceIndex, offset, length));
@@ -302,7 +307,7 @@ public class PeerConnection implements PeerMessageProducer {
 		                }
 		            }
 		        } catch (IndexOutOfBoundsException e) {
-		            logger.info("Peer {} requested a piece that doesn't exist ({}). Disconnecting", peer, pieceIndex);
+		            logger.info("Peer {} requested a piece that doesn't exist ({}). Disconnecting", PeerConnection.this, pieceIndex);
 		            kill();
 		        }
 		    }
@@ -325,17 +330,17 @@ public class PeerConnection implements PeerMessageProducer {
 	            torrentMetadata.get().getInfoHash(), 
 	            ConfigManager.getClientId().getBytes()));
 	    handshakeSent = true;
-	    logger.debug("Handshake queued to be sent to peer {}", peer);
+	    logger.debug("Handshake queued to be sent to peer {}", this);
 	}
 	
 	public void sendBitField(BitField localBitField) {
 	    messageWriter.send(RawMessage.createBitField(localBitField));
-	    logger.debug("Bitfield queued to be sent to peer {}", peer);
+	    logger.debug("Bitfield queued to be sent to peer {}", this);
 	}
 	
 	public void sendHave(int pieceIndex) {
 	    messageWriter.send(RawMessage.createHave(pieceIndex));
-	    logger.debug("Have {} queued to be sent to peer {}", pieceIndex, peer);
+	    logger.debug("Have {} queued to be sent to peer {}", pieceIndex, this);
 	}
 	
 	public boolean isAmInterested() {
@@ -349,10 +354,10 @@ public class PeerConnection implements PeerMessageProducer {
 	public void setAmInterested(boolean amInterested) {
 	    if(amInterested && !this.amInterested) {
 	        messageWriter.send(RawMessage.createInterested());
-	        logger.debug("Sending Interested message to peer {}", peer);
+	        logger.debug("Sending Interested message to peer {}", this);
 	    } else if (!amInterested && this.amInterested) {
 	        messageWriter.send(RawMessage.createNotInterested());
-	        logger.debug("Sending NotInterested message to peer {}", peer);
+	        logger.debug("Sending NotInterested message to peer {}", this);
 	    }
         this.amInterested = amInterested;
     }
@@ -368,10 +373,10 @@ public class PeerConnection implements PeerMessageProducer {
 	public void setAmChoking(boolean amChoking) {
 	    if(amChoking && !this.amChoking) {
 	        messageWriter.send(RawMessage.createChoke());
-	        logger.debug("Sending Choke message to peer {}", peer);
+	        logger.debug("Sending Choke message to peer {}", this);
 	    } else if(!amChoking && this.amChoking) {
 	        messageWriter.send(RawMessage.createUnchoke());
-	        logger.debug("Sending Unchoke message to peer {}", peer);
+	        logger.debug("Sending Unchoke message to peer {}", this);
 	    }
         this.amChoking = amChoking;
     }
@@ -379,11 +384,11 @@ public class PeerConnection implements PeerMessageProducer {
 	private void requestBlock(int pieceIndex, int offset, int length) {
 	    messageWriter.send(RawMessage.createRequest(pieceIndex, offset, length));
 	    logger.debug("Sending Request message [index={}, offset={}, length={}] to peer {}", 
-	            pieceIndex, offset, length, peer);
+	            pieceIndex, offset, length, this);
 	}
 	
 	public void download(Piece piece) {
-	    logger.debug("Starting download of piece {} from peer {}", piece.getIndex(), peer);
+	    logger.debug("Starting download of piece {} from peer {}", piece.getIndex(), this);
 	    if (isDownloading()) {
 	        throw new IllegalStateException("Already downloading a piece, can't start downloading another one");
 	    }
@@ -421,6 +426,11 @@ public class PeerConnection implements PeerMessageProducer {
             logger.error("Error reading piece from disk. Closing connection with peer.", e);
             kill();
         }
+	}
+	
+	@Override
+	public String toString() {
+	    return peer.toString() + ", " + (seeder ? "SEEDER" : "LEECHER");
 	}
 	
 	private final static class DownloadStatus {

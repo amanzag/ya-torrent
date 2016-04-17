@@ -213,7 +213,7 @@ public class TorrentDownload implements PeerConnectionListener {
     public void onNewConnection(PeerConnection peerConnection) {
         synchronized (peerRepository) {
             peerRepository.add(peerConnection);
-            logger.debug("New peer for download "+metadata.getName()+", "+peerConnection.getPeer());
+            logger.debug("New peer for download "+metadata.getName()+", "+peerConnection);
             peerConnection.sendHandshake();
             
             peerConnection.addMessageListener(new PeerMessageListener() {

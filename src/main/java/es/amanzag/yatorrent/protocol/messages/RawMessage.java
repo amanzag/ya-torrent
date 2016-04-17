@@ -97,6 +97,7 @@ public class RawMessage {
     
     public static BitField parseBitField(RawMessage msg, int length) {
         byte[] bitfield = new byte[msg.getLength()-5];
+        msg.getRawData().position(5);
         msg.getRawData().get(bitfield);
         try {
             return new BitField(length, bitfield);

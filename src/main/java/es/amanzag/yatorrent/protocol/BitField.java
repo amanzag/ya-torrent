@@ -31,9 +31,9 @@ public class BitField {
         int offset = position % 8;
         byte newByte = 0;
         if (present) {
-            newByte = (byte) (statuses[byteIndex] | ((byte)0x01 << offset));
+            newByte = (byte) (statuses[byteIndex] | (0b10000000 >>> offset));
         } else {
-            newByte = (byte) (statuses[byteIndex] & ~((byte)0x01 << offset));
+            newByte = (byte) (statuses[byteIndex] & ~(0b10000000 >>> offset));
         }
         statuses[byteIndex] = newByte;
     }
@@ -41,7 +41,7 @@ public class BitField {
     public boolean isPresent(int position) {
         int byteIndex = position / 8;
         int offset = position % 8;
-        return (statuses[byteIndex] & ((byte)0x01 << offset)) > 0;
+        return (Byte.toUnsignedInt(statuses[byteIndex]) & (0b10000000 >>> offset)) != 0;
     }
     
     public int getSize() {
@@ -59,7 +59,7 @@ public class BitField {
         if(numberOfBitsInLast==0) {
             return lastByte != 0;
         }
-        byte lastMask = (byte) ~(0xFF << numberOfBitsInLast);
+        byte lastMask = (byte) ~(0xFF >>> numberOfBitsInLast);
         return (byte)(lastByte & lastMask) != 0;
     }
     
@@ -74,7 +74,7 @@ public class BitField {
         if(numberOfBitsInLast==0) {
             return ~lastByte != 0;
         }
-        byte lastMask = (byte) (0xFF << numberOfBitsInLast);
+        byte lastMask = (byte) (0xFF >>> numberOfBitsInLast);
         return (byte)~(lastByte | lastMask) != 0;
     }
     

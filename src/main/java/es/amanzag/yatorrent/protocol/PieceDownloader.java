@@ -34,8 +34,9 @@ public class PieceDownloader {
     public void scheduleDownloads() {
         BitField piecesNeeded = localBitField.reverse();
         peerRepository.getConnectedPeers().stream()
-            .filter(peer -> !peer.isPeerChoking())
-            .filter(peer -> !currentDownloads.containsKey(peer))
+            .filter(peer -> 
+                !peer.isPeerChoking() && !currentDownloads.containsKey(peer)
+            )
             .forEach(peerConnection -> {
                 findDownloadablePiece(peerConnection, piecesNeeded).ifPresent(pieceIndex -> {
                     Piece newDownload = storage.piece(pieceIndex);
