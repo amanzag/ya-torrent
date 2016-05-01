@@ -17,9 +17,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
+import es.amanzag.yatorrent.protocol.io.MessageReader;
+import es.amanzag.yatorrent.protocol.io.MessageWriter;
 import es.amanzag.yatorrent.protocol.messages.MalformedMessageException;
-import es.amanzag.yatorrent.protocol.messages.MessageReader;
-import es.amanzag.yatorrent.protocol.messages.MessageWriter;
 import es.amanzag.yatorrent.protocol.messages.RawMessage;
 import es.amanzag.yatorrent.storage.Piece;
 import es.amanzag.yatorrent.storage.TorrentStorage;

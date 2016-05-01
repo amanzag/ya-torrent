@@ -15,6 +15,7 @@ import com.google.common.eventbus.EventBus;
 import es.amanzag.yatorrent.events.PeerConnectionsChangedEvent;
 import es.amanzag.yatorrent.metafile.MalformedMetadataException;
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
+import es.amanzag.yatorrent.protocol.io.TorrentNetworkManager;
 import es.amanzag.yatorrent.protocol.tracker.TrackerManager;
 import es.amanzag.yatorrent.storage.Piece;
 import es.amanzag.yatorrent.storage.TorrentStorage;

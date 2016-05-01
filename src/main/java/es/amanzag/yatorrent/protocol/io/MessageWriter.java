@@ -1,4 +1,4 @@
-package es.amanzag.yatorrent.protocol.messages;
+package es.amanzag.yatorrent.protocol.io;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -7,6 +7,8 @@ import java.util.LinkedList;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import es.amanzag.yatorrent.protocol.messages.RawMessage;
 
 public class MessageWriter {
     

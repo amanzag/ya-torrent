@@ -1,4 +1,4 @@
-package es.amanzag.yatorrent.protocol;
+package es.amanzag.yatorrent.protocol.io;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -14,6 +14,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
+import es.amanzag.yatorrent.protocol.Peer;
+import es.amanzag.yatorrent.protocol.PeerConnection;
+import es.amanzag.yatorrent.protocol.PeerConnectionListener;
+import es.amanzag.yatorrent.protocol.PeerConnectionProducer;
+import es.amanzag.yatorrent.protocol.PeerMessageListener;
 import es.amanzag.yatorrent.storage.TorrentStorage;
 
 public class TorrentNetworkManager implements PeerConnectionProducer {
@@ -114,6 +119,9 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
                             } else {
                                 conn.doRead();
                             }
+                        } catch (ConnectionClosedException e) {
+                            logger.info("Peer {} closed the connection", conn.getPeer());
+                            conn.kill();
                         } catch (Exception e) {
                             logger.error("Error reading from socket ("+e.getMessage()+"). Closing connection with "+conn.getPeer(), e);
                             conn.kill();
@@ -132,8 +140,7 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
                 }
             }
         } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            logger.error("Unhandled exception", e);
         }
     }
 

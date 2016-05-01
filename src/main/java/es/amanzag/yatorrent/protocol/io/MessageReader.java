@@ -1,12 +1,15 @@
 /**
  * 
  */
-package es.amanzag.yatorrent.protocol.messages;
+package es.amanzag.yatorrent.protocol.io;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ByteChannel;
 import java.util.Optional;
+
+import es.amanzag.yatorrent.protocol.messages.MalformedMessageException;
+import es.amanzag.yatorrent.protocol.messages.RawMessage;
 
 /**
  * @author Alberto Manzaneque Garcia
@@ -45,7 +48,9 @@ public class MessageReader {
 		if(length == -1) {
 			buffer.limit(4);
 			// FIXME hacer algo mas ademas de tirar excepcion??
-			if(channel.read(buffer) == -1) throw new IOException("EOF reached");
+			if(channel.read(buffer) == -1) {
+                throw new ConnectionClosedException();
+            }
 			if(buffer.remaining() == 0) {
 				length = buffer.getInt(0)+4;
 				buffer.limit(length);
@@ -53,7 +58,7 @@ public class MessageReader {
 		}
 		if(length != -1 && buffer.remaining()>0) {
 			if(channel.read(buffer) == -1) {
-                throw new IOException("EOF reached");
+                throw new ConnectionClosedException();
             }
 		}
 		if(buffer.remaining() == 0) {
