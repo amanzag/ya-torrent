@@ -86,14 +86,15 @@ public class PeerConnection implements PeerMessageProducer {
 		return channel;
 	}
 	
-	public void doRead() throws MalformedMessageException, IOException {
+	public int doRead() throws MalformedMessageException, IOException {
 		messageReader.readFromChannel(channel).ifPresent(msg -> {
 		    onMessageReceived(msg);
 		    messageReader.reset();
 		    if(!handshakeReceived) {
                 messageReader.setHandshakeMode();
             }
-		});;
+		});
+		return messageReader.getBytesRead();
 	}
 	
 	/**

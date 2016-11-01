@@ -3,6 +3,7 @@ package es.amanzag.yatorrent;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 
+import es.amanzag.yatorrent.events.BandwidthUsageEvent;
 import es.amanzag.yatorrent.events.CompletionChangedEvent;
 import es.amanzag.yatorrent.events.DownloadingPeersChangedEvent;
 import es.amanzag.yatorrent.events.PeerConnectionsChangedEvent;
@@ -13,6 +14,7 @@ public class YaTorrentConsoleView {
     private int connectedPeers = 0;
     private int downloadingPeers = 0;
     private long downloadedBytes = 0;
+    private int downloadBPS = 0;
     private long totalBytes = 0;
     public boolean active = false;
     
@@ -48,16 +50,23 @@ public class YaTorrentConsoleView {
         refresh();
     }
     
+    @Subscribe
+    public void onBandwithUsage(BandwidthUsageEvent e) {
+        this.downloadBPS = e.bytesPerSecond;
+        refresh();
+    }
+    
     private void refresh() {
         if (!active) {
             return;
         }
-        System.out.printf("Downloaded %s/%s (%.2f%%) \t Peers (%d/%d)\r", 
+        System.out.printf("Downloaded %s/%s (%.2f%%) \t Peers (%d/%d), Speed: %s/s\r", 
                 Util.humanReadableByteCount(downloadedBytes, false),
                 Util.humanReadableByteCount(totalBytes, false),
                 (float)downloadedBytes * 100 / totalBytes,
                 downloadingPeers, 
-                connectedPeers);
+                connectedPeers,
+                Util.humanReadableByteCount(downloadBPS, true));
     }
 
 }

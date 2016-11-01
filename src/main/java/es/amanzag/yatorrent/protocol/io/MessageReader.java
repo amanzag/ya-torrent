@@ -23,6 +23,7 @@ public class MessageReader {
 	protected ByteBuffer buffer;
 	private boolean valid;
 	private int length;
+	private int bytesRead;
 	
 	public MessageReader() {
 		this.type = null; // still undefined
@@ -30,6 +31,7 @@ public class MessageReader {
 		buffer.mark();
 		valid = false;
 		length = -1;
+		bytesRead = 0;
 	}
 	
 	public boolean isValid() {
@@ -44,13 +46,17 @@ public class MessageReader {
 	}
 	
 	public Optional<RawMessage> readFromChannel(ByteChannel channel) throws IOException, MalformedMessageException {
-		if(isValid()) throw new MalformedMessageException("The whole message is already read");
+	    bytesRead = 0;
+	    int initialPosition = buffer.position();
+		if(isValid()) {
+            throw new MalformedMessageException("The whole message is already read");
+        }
 		if(length == -1) {
 			buffer.limit(4);
-			// FIXME hacer algo mas ademas de tirar excepcion??
 			if(channel.read(buffer) == -1) {
                 throw new ConnectionClosedException();
             }
+			bytesRead = buffer.position() - initialPosition;
 			if(buffer.remaining() == 0) {
 				length = buffer.getInt(0)+4;
 				buffer.limit(length);
@@ -60,6 +66,7 @@ public class MessageReader {
 			if(channel.read(buffer) == -1) {
                 throw new ConnectionClosedException();
             }
+			bytesRead = buffer.position() - initialPosition;
 		}
 		if(buffer.remaining() == 0) {
 			if(type == null) {
@@ -92,8 +99,7 @@ public class MessageReader {
 		buffer.position(0).limit(0);
 	}
 	
-	public ByteBuffer getData() {
-		return buffer;
-	}
-	
+	public int getBytesRead() {
+        return bytesRead;
+    }
 }

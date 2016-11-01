@@ -38,7 +38,9 @@ public class TrackerManager extends Thread implements TrackerEventProducer {
 		this.metadata = metadata;
 		while(this.url == null) {
 		    try {
-		        setUrl(metadata.getAnnounce());
+		        // temporary hack to select working tracker
+//		        setUrl(metadata.getAnnounce());
+		        setUrl(metadata.getAnnounceList().get(3));
 		    } catch(MalformedURLException e) {
 		        logger.warn("Can't use default tracker " + metadata.getAnnounce());
 		        for (String announce : metadata.getAnnounceList()) {

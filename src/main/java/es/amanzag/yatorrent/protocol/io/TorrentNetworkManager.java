@@ -13,6 +13,8 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.eventbus.EventBus;
+
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
 import es.amanzag.yatorrent.protocol.Peer;
 import es.amanzag.yatorrent.protocol.PeerConnection;
@@ -29,12 +31,14 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
     private TorrentMetadata metadata;
     private TorrentStorage storage;
     private List<PeerConnectionListener> listeners;
+    private BandwithReporter bandwithReporter;
     
-    public TorrentNetworkManager(TorrentMetadata metadata, TorrentStorage storage) {
+    public TorrentNetworkManager(TorrentMetadata metadata, TorrentStorage storage, EventBus eventBus) {
         sockSelector = null;
         this.metadata = metadata;
         this.storage = storage;
         this.listeners = new ArrayList<>();
+        bandwithReporter = new BandwithReporter(eventBus);
     }
     
     public void start() throws IOException {
@@ -117,7 +121,8 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
                                 conn.kill();
                                 key.cancel();
                             } else {
-                                conn.doRead();
+                                int bytesRead = conn.doRead();
+                                bandwithReporter.register(bytesRead);
                             }
                         } catch (ConnectionClosedException e) {
                             logger.info("Peer {} closed the connection", conn.getPeer());
@@ -139,6 +144,7 @@ public class TorrentNetworkManager implements PeerConnectionProducer {
                     }
                 }
             }
+            bandwithReporter.report();
         } catch (IOException e) {
             logger.error("Unhandled exception", e);
         }

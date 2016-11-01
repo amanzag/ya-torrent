@@ -17,7 +17,6 @@ import es.amanzag.yatorrent.metafile.MalformedMetadataException;
 import es.amanzag.yatorrent.metafile.TorrentMetadata;
 import es.amanzag.yatorrent.protocol.io.TorrentNetworkManager;
 import es.amanzag.yatorrent.protocol.tracker.TrackerManager;
-import es.amanzag.yatorrent.storage.Piece;
 import es.amanzag.yatorrent.storage.TorrentStorage;
 import es.amanzag.yatorrent.util.ConfigManager;
 
@@ -50,7 +49,7 @@ public class TorrentDownload implements PeerConnectionListener {
 		tracker = new TrackerManager(metadata);
 		peerRepository = new PeerRepository();
 		tracker.addTrackerEventListener(this::onNewPeerInTheNetwork);
-		networkManager = new TorrentNetworkManager(metadata, storage);
+		networkManager = new TorrentNetworkManager(metadata, storage, eventBus);
 		networkManager.addPeerConnectionListener(this);
 		start = false;
 		stop = false;
